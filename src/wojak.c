@@ -457,8 +457,8 @@ void retract_char(int steps) {
     // If retracting from first to second buffer
     // e.g. retracting from index 0???
     if(forward_lexeme_ptr - steps < 0) {
-        // 2nd half buffer should not be refreshed
-        should_refresh_buffer[1] = 0;
+        // 1st half buffer should not be refreshed
+        should_refresh_buffer[0] = 0;
         // Retract the pointer
         forward_lexeme_ptr = (BUFFER_LENGTH * 2 - 1) - steps - forward_lexeme_ptr;
         next_char = buffer[forward_lexeme_ptr];
@@ -467,8 +467,8 @@ void retract_char(int steps) {
     // Else if retracting from second to first buffer
     // e.g. retracting from BUFFER_LENGTH
     else if(forward_lexeme_ptr >= BUFFER_LENGTH && forward_lexeme_ptr - steps < BUFFER_LENGTH) {
-        // 1st half buffer should not be refreshed
-        should_refresh_buffer[0] = 0;
+        // 2nd half buffer should not be refreshed
+        should_refresh_buffer[1] = 0;
         // Retract the pointer
         forward_lexeme_ptr = forward_lexeme_ptr - steps - 1;
         next_char = buffer[forward_lexeme_ptr];
