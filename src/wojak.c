@@ -1,4 +1,6 @@
 // TODO: Document properly
+// TODO: Might re-evaluate states later so there are no skipped numbers(?)
+// NOT NECESSARY, but can be nice for OCD people
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,11 +23,11 @@
 #define IDENTIFIER 0
 #define ADD_OP 1
 #define INC_OP 2
-#define SUB_OP 3
+#define HYPHEN 3
 #define DEC_OP 4
 #define MUL_OP 5
 #define EXP_OP 6
-#define DIV_OP 7
+#define FW_SLASH 7
 #define FLR_OP 8
 #define MOD_OP 9
 #define BITWISE_AND_OP 10
@@ -36,12 +38,12 @@
 #define LOGIC_NOT_OP 15
 #define NOT_EQ_OP 16
 #define BITWISE_XOR_OP 17
-#define ASSIGN_OP 18
+#define EQ_SIGN 18
 #define EQ_OP 19
-#define GT_OP 20
+#define RANGLE 20
 #define GT_EQ_OP 21
 #define BITWISE_RIGHT_OP 22
-#define LT_OP 23
+#define LANGLE 23
 #define LT_EQ_OP 24
 #define BITWISE_LEFT_OP 25
 #define LPAREN 26
@@ -49,8 +51,11 @@
 #define SINGLE_QUOTE 28
 #define DOUBLE_QUOTE 29
 #define COMMA 30
-#define L_SQBRACKET 31
-#define R_SQBRACKET 32
+#define LBRACKET 31
+#define RBRACKET 32
+#define DOT 33
+#define INT_LITERAL 34
+#define FLOAT_LITERAL 35
 
 typedef struct {
     char lexeme[80];
@@ -208,7 +213,9 @@ token* lex() {
                 else TRANSITION(',', 139)
                 else TRANSITION('[', 140)
                 else TRANSITION(']', 141)
+                else TRANSITION('.', 142)
                 else TRANSITION_NONSINGLE(isalpha(next_char) || next_char == '_', 1)
+                else TRANSITION_NONSINGLE(isdigit(next_char), 143)
                 else RETRACT_THEN_ACCEPT("End of File",
                                          EOF)
                 break;
@@ -234,8 +241,8 @@ token* lex() {
             case 4:
                 get_next_char();
                 TRANSITION('-', 5)
-                else RETRACT_THEN_ACCEPT("Dash Symbol (or Subtraction Operator)",
-                                         SUB_OP)
+                else RETRACT_THEN_ACCEPT("Hyphen",
+                                         HYPHEN)
                 break;
 
             case 5:
@@ -255,8 +262,8 @@ token* lex() {
             case 8:
                 get_next_char();
                 TRANSITION('/', 9)
-                else RETRACT_THEN_ACCEPT("Forward Slash Symbol (or Division Operator)",
-                                         DIV_OP)
+                else RETRACT_THEN_ACCEPT("Forward Slash Symbol",
+                                         FW_SLASH)
                 break;
 
             case 9:
@@ -311,8 +318,8 @@ token* lex() {
             case 19:
                 get_next_char();
                 TRANSITION('=', 20)
-                else RETRACT_THEN_ACCEPT("Assignment Operator",
-                                         ASSIGN_OP)
+                else RETRACT_THEN_ACCEPT("Equal Sign",
+                                         EQ_SIGN)
                 break;
 
             case 20:
@@ -323,8 +330,8 @@ token* lex() {
                 get_next_char();
                 TRANSITION('=', 22)
                 else TRANSITION('>', 23)
-                else RETRACT_THEN_ACCEPT("Relational Greater Than Operator",
-                                         GT_OP)
+                else RETRACT_THEN_ACCEPT("Right Angle Bracket",
+                                         RBRACKET)
                 break;
 
             case 22:
@@ -339,8 +346,8 @@ token* lex() {
                 get_next_char();
                 TRANSITION('=', 25)
                 else TRANSITION('<', 26)
-                else RETRACT_THEN_ACCEPT("Relational Less Than Operator",
-                                         LT_OP)
+                else RETRACT_THEN_ACCEPT("Left Angle Bracket",
+                                         LBRACKET)
                 break;
 
             case 25:
@@ -373,11 +380,40 @@ token* lex() {
                 
             case 140:
                 ACCEPT("Left Square Bracket",
-                       L_SQBRACKET)
+                       LBRACKET)
                 
             case 141:
                 ACCEPT("Right Square Bracket",
-                       R_SQBRACKET)
+                       RBRACKET)
+
+            case 142:
+                ACCEPT("Dot",
+                       DOT);
+
+            case 143:
+                get_next_char();
+                TRANSITION_NONSINGLE(isdigit(next_char), 143)
+                else TRANSITION('.', 144)
+                else ACCEPT("Integer Literal",
+                            INT_LITERAL)
+                break;
+
+            case 144:
+                get_next_char();
+                TRANSITION_NONSINGLE(isdigit(next_char), 145)
+                else {
+                    lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = '0';
+                    RETRACT_THEN_ACCEPT("Float Literal",
+                                        FLOAT_LITERAL)
+                }
+                break;
+
+            case 145:
+                get_next_char();
+                TRANSITION_NONSINGLE(isdigit(next_char), 145)
+                else RETRACT_THEN_ACCEPT("Float Literal",
+                                         FLOAT_LITERAL)
+                break;
         }
     }
 }
