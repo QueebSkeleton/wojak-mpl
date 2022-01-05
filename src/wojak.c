@@ -7,15 +7,18 @@
 
 #define BUFFER_LENGTH 1024
 
-#define TRANSITION(input, to_state) \
-    if(next_char == input) current_state = to_state
-#define TRANSITION_BRANCH(input, to_state) \
-    else TRANSITION(input, to_state)
-#define ACCEPT(lexeme, token_str, rep) \
-    return create_token(lexeme, token_str, rep)
-#define ELSE_RETRACT_THEN_ACCEPT(lexeme, token_str, rep) \
-    else { retract_char(1); ACCEPT(lexeme, token_str, rep); }
+#define TRANSITION(input, to_state) TRANSITION_NONSINGLE(next_char == input, to_state)
+#define TRANSITION_NONSINGLE(boolean_condition, to_state) \
+    if(boolean_condition) { \
+        lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = next_char; \
+        current_state = to_state; \
+    }
+#define ACCEPT(token_str, rep) \
+    return create_token(lexeme, token_str, rep);
+#define RETRACT_THEN_ACCEPT(token_str, rep) \
+    { retract_char(1); ACCEPT(token_str, rep); }
 
+#define IDENTIFIER 0
 #define ADD_OP 1
 #define INC_OP 2
 #define SUB_OP 3
@@ -175,231 +178,206 @@ void init() {
 token* lex() {
     current_state = 0;
 
+    char lexeme[80] = { '\0' };
+
     while(1) {
         switch(current_state) {
             case 0:
                 get_next_char_nonblank();
-                TRANSITION('+', 2);
-                TRANSITION_BRANCH('-', 4);
-                TRANSITION_BRANCH('*', 6);
-                TRANSITION_BRANCH('/', 8);
-                TRANSITION_BRANCH('%', 10);
-                TRANSITION_BRANCH('&', 11);
-                TRANSITION_BRANCH('|', 13);
-                TRANSITION_BRANCH('~', 15);
-                TRANSITION_BRANCH('!', 16);
-                TRANSITION_BRANCH('^', 17);
-                TRANSITION_BRANCH('=', 19);
-                TRANSITION_BRANCH('>', 21);
-                TRANSITION_BRANCH('<', 24);
-                TRANSITION_BRANCH('(', 135);
-                TRANSITION_BRANCH(')', 136);
-                TRANSITION_BRANCH('\'', 137);
-                TRANSITION_BRANCH('\"', 138);
-                TRANSITION_BRANCH(',', 139);
-                TRANSITION_BRANCH('[', 140);
-                TRANSITION_BRANCH(']', 141);
-                ELSE_RETRACT_THEN_ACCEPT("EOF",
-                                         "End-of-File",
-                                         EOF);
+
+                begin_lexeme_ptr = forward_lexeme_ptr;
+
+                // TODO: Implement a HashMap Data Structure
+                TRANSITION('+', 2)
+                else TRANSITION('-', 4)
+                else TRANSITION('*', 6)
+                else TRANSITION('/', 8)
+                else TRANSITION('%', 10)
+                else TRANSITION('&', 11)
+                else TRANSITION('|', 13)
+                else TRANSITION('~', 15)
+                else TRANSITION('!', 16)
+                else TRANSITION('^', 17)
+                else TRANSITION('=', 19)
+                else TRANSITION('>', 21)
+                else TRANSITION('<', 24)
+                else TRANSITION('(', 135)
+                else TRANSITION(')', 136)
+                else TRANSITION('\'', 137)
+                else TRANSITION('\"', 138)
+                else TRANSITION(',', 139)
+                else TRANSITION('[', 140)
+                else TRANSITION(']', 141)
+                else TRANSITION_NONSINGLE(isalpha(next_char) || next_char == '_', 1)
+                else RETRACT_THEN_ACCEPT("End of File",
+                                         EOF)
+                break;
+
+            case 1:
+                get_next_char();
+                TRANSITION_NONSINGLE(isalnum(next_char) || next_char == '_', 1)
+                else RETRACT_THEN_ACCEPT("Identifier",
+                                         IDENTIFIER)
                 break;
 
             case 2:
                 get_next_char();
-                TRANSITION('+', 3);
-                ELSE_RETRACT_THEN_ACCEPT("+",
-                                         "Plus Sign (or Addition Operator)",
-                                         ADD_OP);
+                TRANSITION('+', 3)
+                else RETRACT_THEN_ACCEPT("Plus Sign (or Addition Operator)",
+                                         ADD_OP)
                 break;
 
             case 3:
-                ACCEPT("++",
-                       "Increment Operator",
-                       INC_OP);
+                ACCEPT("Increment Operator",
+                       INC_OP)
 
             case 4:
                 get_next_char();
-                TRANSITION('-', 5);
-                ELSE_RETRACT_THEN_ACCEPT("-",
-                                         "Dash Symbol (or Subtraction Operator)",
-                                         SUB_OP);
+                TRANSITION('-', 5)
+                else RETRACT_THEN_ACCEPT("Dash Symbol (or Subtraction Operator)",
+                                         SUB_OP)
                 break;
 
             case 5:
-                ACCEPT("--",
-                       "Decrement Operator",
-                       DEC_OP);
+                ACCEPT("Decrement Operator",
+                       DEC_OP)
 
             case 6:
                 get_next_char();
-                TRANSITION('*', 7);
-                ELSE_RETRACT_THEN_ACCEPT("*",
-                                         "Asterisk Symbol (or Multiplication Operator)",
-                                         MUL_OP);
+                TRANSITION('*', 7)
+                else RETRACT_THEN_ACCEPT("Asterisk Symbol (or Multiplication Operator)",
+                                         MUL_OP)
                 break;
             case 7:
-                ACCEPT("**",
-                       "Exponentiation Operator",
-                       EXP_OP);
+                ACCEPT("Exponentiation Operator",
+                       EXP_OP)
 
             case 8:
                 get_next_char();
-                TRANSITION('/', 9);
-                ELSE_RETRACT_THEN_ACCEPT("/",
-                                         "Forward Slash Symbol (or Division Operator)",
-                                         DIV_OP);
+                TRANSITION('/', 9)
+                else RETRACT_THEN_ACCEPT("Forward Slash Symbol (or Division Operator)",
+                                         DIV_OP)
                 break;
 
             case 9:
-                ACCEPT("//",
-                       "Floor Division Operator",
-                       FLR_OP);
+                ACCEPT("Floor Division Operator",
+                       FLR_OP)
 
             case 10:
-                ACCEPT("%",
-                       "Modulus Operator",
-                       MOD_OP);
+                ACCEPT("Modulus Operator",
+                       MOD_OP)
 
             case 11:
                 get_next_char();
-                TRANSITION('&', 12);
-                ELSE_RETRACT_THEN_ACCEPT("&",
-                                         "Bitwise AND Operator",
-                                         BITWISE_AND_OP);
+                TRANSITION('&', 12)
+                else RETRACT_THEN_ACCEPT("Bitwise AND Operator",
+                                         BITWISE_AND_OP)
                 break;
 
             case 12:
-                ACCEPT("&&",
-                       "Logical AND Operator",
-                       LOGIC_AND_OP);
+                ACCEPT("Logical AND Operator",
+                       LOGIC_AND_OP)
 
             case 13:
                 get_next_char();
-                TRANSITION('|', 14);
-                ELSE_RETRACT_THEN_ACCEPT("|",
-                                         "Bitwise OR Operator",
-                                         BITWISE_OR_OP);
+                TRANSITION('|', 14)
+                else RETRACT_THEN_ACCEPT("Bitwise OR Operator",
+                                         BITWISE_OR_OP)
                 break;
 
             case 14:
-                ACCEPT("||",
-                       "Logical OR Operator",
-                       LOGIC_OR_OP);
+                ACCEPT("Logical OR Operator",
+                       LOGIC_OR_OP)
 
             case 15:
-                ACCEPT("~",
-                       "Bitwise NOT Operator",
-                       BITWISE_NOT_OP);
+                ACCEPT("Bitwise NOT Operator",
+                       BITWISE_NOT_OP)
 
             case 16:
                 get_next_char();
-                TRANSITION('=', 18);
-                ELSE_RETRACT_THEN_ACCEPT("!",
-                                         "Logical NOT Operator",
-                                         LOGIC_NOT_OP);
+                TRANSITION('=', 18)
+                else RETRACT_THEN_ACCEPT("Logical NOT Operator",
+                                         LOGIC_NOT_OP)
                 break;
 
             case 17:
-                ACCEPT("^",
-                       "Bitwise XOR Operator",
-                       BITWISE_XOR_OP);
+                ACCEPT("Bitwise XOR Operator",
+                       BITWISE_XOR_OP)
 
             case 18:
-                ACCEPT("!=",
-                       "Relational Not Equal Operator",
-                       NOT_EQ_OP);
+                ACCEPT("Relational Not Equal Operator",
+                       NOT_EQ_OP)
 
             case 19:
                 get_next_char();
-                TRANSITION('=', 20);
-                ELSE_RETRACT_THEN_ACCEPT("=",
-                                         "Assignment Operator",
-                                         ASSIGN_OP);
+                TRANSITION('=', 20)
+                else RETRACT_THEN_ACCEPT("Assignment Operator",
+                                         ASSIGN_OP)
                 break;
 
             case 20:
-                ACCEPT("==",
-                       "Relational Equal Operator",
-                       EQ_OP);
+                ACCEPT("Relational Equal Operator",
+                       EQ_OP)
 
             case 21:
                 get_next_char();
-                TRANSITION('=', 22);
-                TRANSITION_BRANCH('>', 23);
-                ELSE_RETRACT_THEN_ACCEPT(">",
-                                         "Relational Greater Than Operator",
-                                         GT_OP);
+                TRANSITION('=', 22)
+                else TRANSITION('>', 23)
+                else RETRACT_THEN_ACCEPT("Relational Greater Than Operator",
+                                         GT_OP)
                 break;
 
             case 22:
-                ACCEPT(">=",
-                       "Relational Greater Than or Equal Operator",
-                       GT_EQ_OP);
+                ACCEPT("Relational Greater Than or Equal Operator",
+                       GT_EQ_OP)
 
             case 23:
-                ACCEPT(">>",
-                       "Bitwise Shift Right Operator",
-                       BITWISE_RIGHT_OP);
+                ACCEPT("Bitwise Shift Right Operator",
+                       BITWISE_RIGHT_OP)
 
             case 24:
                 get_next_char();
-                TRANSITION('=', 25);
-                TRANSITION_BRANCH('<', 26);
-                ELSE_RETRACT_THEN_ACCEPT("<",
-                                         "Relational Less Than Operator",
-                                         LT_OP);
+                TRANSITION('=', 25)
+                else TRANSITION('<', 26)
+                else RETRACT_THEN_ACCEPT("Relational Less Than Operator",
+                                         LT_OP)
                 break;
 
             case 25:
-                ACCEPT("<=",
-                       "Relational Less Than or Equal Operator",
-                       LT_EQ_OP);
+                ACCEPT("Relational Less Than or Equal Operator",
+                       LT_EQ_OP)
 
             case 26:
-                ACCEPT("<<",
-                       "Bitwise Shift Left Operator",
-                       BITWISE_LEFT_OP);
+                ACCEPT("Bitwise Shift Left Operator",
+                       BITWISE_LEFT_OP)
 
             case 135:
-                ACCEPT("(",
-                       "Left Parenthesis",
-                       LPAREN);
+                ACCEPT("Left Parenthesis",
+                       LPAREN)
 
             case 136:
-                ACCEPT(")",
-                       "Right Parenthesis",
-                       RPAREN);
+                ACCEPT("Right Parenthesis",
+                       RPAREN)
 
             case 137:
-                ACCEPT("\'",
-                       "Single Quote",
-                       SINGLE_QUOTE);
+                ACCEPT("Single Quote",
+                       SINGLE_QUOTE)
 
             case 138:
-                ACCEPT("\"",
-                       "Double Quote",
-                       DOUBLE_QUOTE);
+                ACCEPT("Double Quote",
+                       DOUBLE_QUOTE)
 
             case 139:
-                ACCEPT(",",
-                       "Comma",
-                       COMMA);
+                ACCEPT("Comma",
+                       COMMA)
                 
             case 140:
-                ACCEPT("[",
-                       "Left Square Bracket",
-                       L_SQBRACKET);
+                ACCEPT("Left Square Bracket",
+                       L_SQBRACKET)
                 
             case 141:
-                ACCEPT("]",
-                       "Right Square Bracket",
-                       R_SQBRACKET);
-
-            default:
-                // Placeholder, will not be reached
-                ACCEPT("EOF",
-                       "End-of-File",
-                       EOF);
+                ACCEPT("Right Square Bracket",
+                       R_SQBRACKET)
         }
     }
 }
