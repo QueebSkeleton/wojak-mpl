@@ -1,0 +1,1 @@
+gcc src/wojak.c -o bin/wojak

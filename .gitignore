@@ -7,6 +7,9 @@
 *.obj
 *.elf
 
+# Binary files
+bin/
+
 # Linker output
 *.ilk
 *.map
@@ -53,3 +56,6 @@ dkms.conf
 
 # Visual Studio Code
 .vscode
+
+# .wojak test files
+*.wojak
