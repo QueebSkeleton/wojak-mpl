@@ -96,27 +96,29 @@
 #define LBRACKET 31
 #define RBRACKET 32
 #define DOT 33
-#define INT_LITERAL 34
-#define FLOAT_LITERAL 35
+#define COMMENT_BEGIN 34
+#define COMMENT_END 35
+#define INT_LITERAL 36
+#define FLOAT_LITERAL 37
 
-#define PRIM_DECLARE_KW 36
-#define LIST_DECLARE_KW 37
-#define ELEM_KW 38
-#define ASSIGN_KW 39
-#define IF_KW 40
-#define ELIF_KW 41
-#define ELSE_KW 42
-#define BREAK_KW 43
-#define CONTINUE_KW 44
-#define SWITCH_KW 45
-#define CASE_KW 46 
-#define WHILE_KW 47
-#define TYPE_KW 48
-#define IDENTIFIER_KW 49
-#define EXPR_KW 50
-#define SIZE_KW 51
-#define EVAL_KW 52
-#define CONST_KW 53
+#define PRIM_DECLARE_KW 38
+#define LIST_DECLARE_KW 39
+#define ELEM_KW 40
+#define ASSIGN_KW 41
+#define IF_KW 42
+#define ELIF_KW 43
+#define ELSE_KW 44
+#define BREAK_KW 45
+#define CONTINUE_KW 46
+#define SWITCH_KW 47
+#define CASE_KW 48
+#define WHILE_KW 49
+#define TYPE_KW 50
+#define IDENTIFIER_KW 51
+#define EXPR_KW 52
+#define SIZE_KW 53
+#define EVAL_KW 54
+#define CONST_KW 55
 
 typedef struct {
     char lexeme[80];
@@ -188,14 +190,14 @@ int forward_lexeme_ptr;
  */
 int main(int argc, char *argv[]) {
 
-    //if(argc < 2) {
-    //    printf("Error: no given files.\n");
-    //    printf("Usage is: wojak filename.wojak\n");
-    //   exit(EXIT_FAILURE);
-    //}
+    if(argc < 2) {
+        printf("Error: no given files.\n");
+        printf("Usage is: wojak filename.wojak\n");
+       exit(EXIT_FAILURE);
+    }
 
     // Open file in read mode
-    if((input_file = fopen("test.wojak", "r")) == NULL) {
+    if((input_file = fopen(argv[1], "r")) == NULL) {
         printf("Error: cannot open file with name %s. Please check if this file exists"
             " or if the program cannot access it.\n", argv[1]);
         exit(EXIT_FAILURE);
@@ -266,14 +268,14 @@ token* lex() {
                 else TRANSITION('=', 19);
                 else TRANSITION('>', 21);
                 else TRANSITION('<', 24);
-                else TRANSITION('(', 135);
-                else TRANSITION(')', 136);
-                else TRANSITION('\'', 137);
-                else TRANSITION('\"', 138);
-                else TRANSITION(',', 139);
-                else TRANSITION('[', 140);
-                else TRANSITION(']', 141);
-                else TRANSITION('.', 142);
+                else TRANSITION('(', 167);
+                else TRANSITION(')', 168);
+                else TRANSITION('\'', 169);
+                else TRANSITION('\"', 170);
+                else TRANSITION(',', 171);
+                else TRANSITION('[', 172);
+                else TRANSITION(']', 173);
+                else TRANSITION('.', 174);
                 // Start of keywords
                 else TRANSITION('p', 27);
                 else TRANSITION('l', 39);
@@ -288,7 +290,7 @@ token* lex() {
                 // Start of identifier
                 else TRANSITION_NONSINGLE(isalpha(next_char) || next_char == '_', 1);
                 // Start of integer or float literal
-                else TRANSITION_NONSINGLE(isdigit(next_char), 143);
+                else TRANSITION_NONSINGLE(isdigit(next_char), 175);
                 // End of File
                 else RETRACT_THEN_ACCEPT("End of File", EOF);
                 break;
@@ -303,7 +305,9 @@ token* lex() {
             case 4: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION('-', 5),
                         RETRACT_THEN_ACCEPT("Hyphen", HYPHEN));
-            case 5: ACCEPT("Decrement Operator", DEC_OP);
+            case 5: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('>', 166),
+                        RETRACT_THEN_ACCEPT("Decrement Operator", DEC_OP));
             case 6: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION('*', 7),
                         RETRACT_THEN_ACCEPT("Asterisk Symbol (or Multiplication Operator)", MUL_OP));
@@ -339,7 +343,8 @@ token* lex() {
             case 23: ACCEPT("Bitwise Shift Right Operator", BITWISE_RIGHT_OP);
             case 24: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION('=', 25);
-                        else TRANSITION('<', 26),
+                        else TRANSITION('<', 26);
+                        else TRANSITION('!', 163),
                         RETRACT_THEN_ACCEPT("Left Angle Bracket", LBRACKET));
             case 25: ACCEPT("Less Than or Equal Operator", LT_EQ_OP);
             case 26: ACCEPT("Bitwise Shift Left Operator", BITWISE_LEFT_OP);
@@ -449,22 +454,26 @@ token* lex() {
             case 117: ACCEPT("Evaluate Keyword", EVAL_KW);
             case 118: WORD_STATE(TRANSITION('t', 119));
             case 119: ACCEPT("Constant", CONST_KW);
-            case 135: ACCEPT("Left Parenthesis", LPAREN);
-            case 136: ACCEPT("Right Parenthesis", RPAREN);
-            case 137: ACCEPT("Single Quote", SINGLE_QUOTE);
-            case 138: ACCEPT("Double Quote", DOUBLE_QUOTE);
-            case 139: ACCEPT("Comma", COMMA);
-            case 140: ACCEPT("Left Square Bracket", LBRACKET);
-            case 141: ACCEPT("Right Square Bracket", RBRACKET);
-            case 142: ACCEPT("Dot", DOT);
-            case 143: FINAL_STATE_WITH_TRANSITION(
-                        TRANSITION_NONSINGLE(isdigit(next_char), 143);
-                        else TRANSITION('.', 144),
+            case 163: TRANSITION('-', 164);
+            case 164: TRANSITION('-', 165);
+            case 165: ACCEPT("Comment Begin", COMMENT_BEGIN);
+            case 166: ACCEPT("Comment End", COMMENT_END);
+            case 167: ACCEPT("Left Parenthesis", LPAREN);
+            case 168: ACCEPT("Right Parenthesis", RPAREN);
+            case 169: ACCEPT("Single Quote", SINGLE_QUOTE);
+            case 170: ACCEPT("Double Quote", DOUBLE_QUOTE);
+            case 171: ACCEPT("Comma", COMMA);
+            case 172: ACCEPT("Left Square Bracket", LBRACKET);
+            case 173: ACCEPT("Right Square Bracket", RBRACKET);
+            case 174: ACCEPT("Dot", DOT);
+            case 175: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION_NONSINGLE(isdigit(next_char), 175);
+                        else TRANSITION('.', 176),
                         RETRACT_THEN_ACCEPT("Integer Literal", INT_LITERAL));
-            case 144: FINAL_STATE_WITH_TRANSITION(
-                        TRANSITION_NONSINGLE(isdigit(next_char), 145),
-                        { retract_char(1); lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = '0'; current_state = 145; });
-            case 145: FINAL_STATE_WITH_TRANSITION(
+            case 176: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION_NONSINGLE(isdigit(next_char), 177),
+                        { retract_char(1); lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = '0'; current_state = 177; });
+            case 177: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION_NONSINGLE(isdigit(next_char), 145),
                         RETRACT_THEN_ACCEPT("Float Literal", FLOAT_LITERAL));
         }
