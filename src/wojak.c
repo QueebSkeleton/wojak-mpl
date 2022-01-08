@@ -1,6 +1,9 @@
-// TODO: Document properly
-// TODO: Might re-evaluate states later so there are no skipped numbers(?)
-// NOT NECESSARY, but can be nice for OCD people
+// TODO: Adhere to DRY Principles, TOO MUCH REPETITION IN SWITCH!
+// Maybe consider doing the transitions with a one or two-dimensional array
+// and make the machine a generic code that applies to all
+// IF gonna use array or hashmap as transition table, minimize the states
+// especially for keywords
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,9 +12,13 @@
 
 #define BUFFER_LENGTH 1024
 
+// MACRO for a transition given that the current input
+// matches the specified character, heads to got-o state.
 #define TRANSITION(input, to_state) \
     TRANSITION_NONSINGLE(next_char == input, to_state)
 
+// MACRO for a transition provided a boolean condition
+// and a goto state. Reads the given character into the lexeme.
 #define TRANSITION_NONSINGLE(boolean_condition, to_state) \
     if(boolean_condition) \
         do { \
@@ -19,22 +26,41 @@
             current_state = to_state; \
         } while(0)
 
+// MACRO to accept the current input
+// and create a token out of it
 #define ACCEPT(token_str, rep) \
     return create_token(lexeme, token_str, rep)
 
+// MACRO for an accept action for a token,
+// while retracting the forward pointer by 1
 #define RETRACT_THEN_ACCEPT(token_str, rep) \
     do { \
         retract_char(1); \
         ACCEPT(token_str, rep); \
     } while(0)
 
-// Special MACRO for keyword per letter
-#define KEY_OR_RESERVED_WORD_STATE(transitions) \
-    get_next_char(); \
-    transitions; \
-    else TRANSITION_NONSINGLE(isalnum(next_char) || '_', 1); \
-    else { retract_char(1); current_state = 1; } \
-    break
+// MACRO for keywords, each letter state
+// Given that keywords follow the same principle for a machine;
+// 1: When it reads an appropriate keyword letter, heads to next state
+// 2: Else, when it reads another character/number/underscore, heads
+//    to identifier state.
+// 3: Last case, when a diff. character is encountered, retract then
+//    head to identifier state.
+#define WORD_STATE(transitions) \
+    FINAL_STATE_WITH_TRANSITION( \
+        transitions; \
+        else TRANSITION_NONSINGLE(isalnum(next_char) || '_', 1), \
+        do { retract_char(1); current_state = 1; } while(0))
+
+// MACRO for a generic final state that has transitions
+// when reading appropriate input
+// otherwise, the accept will be executed.
+#define FINAL_STATE_WITH_TRANSITION(transitions, accept) \
+    do { \
+        get_next_char(); \
+        transitions; \
+        else accept; \
+    } while(0); break
 
 #define IDENTIFIER 0
 #define ADD_OP 1
@@ -73,23 +99,24 @@
 #define INT_LITERAL 34
 #define FLOAT_LITERAL 35
 
-#define PRIM_DECLARE 36
-#define LIST_DECLARE 37
-#define ELEM 38
-#define ASSIGN 39
-#define IF 40
-#define ELIF 41
-#define ELSE 42
-#define BREAK 43
-#define CONTINUE 44
-#define SWITCH 45
-#define CASE 46 
-#define WHILE 47
-#define TYPE 48
-#define EXPR 49
-#define SIZE 50
-#define EVAL 51
-#define CONST 52
+#define PRIM_DECLARE_KW 36
+#define LIST_DECLARE_KW 37
+#define ELEM_KW 38
+#define ASSIGN_KW 39
+#define IF_KW 40
+#define ELIF_KW 41
+#define ELSE_KW 42
+#define BREAK_KW 43
+#define CONTINUE_KW 44
+#define SWITCH_KW 45
+#define CASE_KW 46 
+#define WHILE_KW 47
+#define TYPE_KW 48
+#define IDENTIFIER_KW 49
+#define EXPR_KW 50
+#define SIZE_KW 51
+#define EVAL_KW 52
+#define CONST_KW 53
 
 typedef struct {
     char lexeme[80];
@@ -223,10 +250,9 @@ token* lex() {
         switch(current_state) {
             case 0:
                 get_next_char_nonblank();
-
                 begin_lexeme_ptr = forward_lexeme_ptr;
-
-                // TODO: Implement a HashMap Data Structure
+                // ??? Implement a generic transition table, so code repetition happens minimally
+                // Operators
                 TRANSITION('+', 2);
                 else TRANSITION('-', 4);
                 else TRANSITION('*', 6);
@@ -248,546 +274,199 @@ token* lex() {
                 else TRANSITION('[', 140);
                 else TRANSITION(']', 141);
                 else TRANSITION('.', 142);
-
                 // Start of keywords
                 else TRANSITION('p', 27);
-                /* SAMPLE KEYWORD PARSING WITH LOOP
-                   MIGHT GET REJECTED (WE DONT KNOW)
-                   SO WE DID MANUAL TRANSITIONING WITH STATES
-                else if(next_char == 'p') {
-                    char expected_keyword[] = "prim_declare";
-                    retract_char(1);
-                    int i;
-                    for(i = 0; i < sizeof(expected_keyword) - 1; i++) {
-                        get_next_char();
-                        if(expected_keyword[i] != '\0' &&
-                           expected_keyword[i] == next_char)
-                            lexeme[i] = next_char;
-                        else {
-                            current_state = 1;
-                            if(isalnum(next_char) || next_char == '_')
-                                lexeme[i] = next_char;
-                            else
-                                retract_char(1);
-                            break;
-                        }
-                    }
-                    if(i == sizeof(expected_keyword) - 1)
-                        ACCEPT("Primitive Declaration",
-                                PRIM_DECLARE)
-                } */
-
-                else TRANSITION('l', 39)
-                else TRANSITION('e', 51)
-                else TRANSITION('a', 55)
-                else TRANSITION('i', 61)
-                else TRANSITION('b', 67)
-                else TRANSITION('c', 72)
-                else TRANSITION('s', 80)
-                else TRANSITION('w', 90)
-                else TRANSITION('t', 95)
-
+                else TRANSITION('l', 39);
+                else TRANSITION('e', 51);
+                else TRANSITION('a', 55);
+                else TRANSITION('i', 61);
+                else TRANSITION('b', 67);
+                else TRANSITION('c', 72);
+                else TRANSITION('s', 80);
+                else TRANSITION('w', 90);
+                else TRANSITION('t', 95);
+                // Start of identifier
                 else TRANSITION_NONSINGLE(isalpha(next_char) || next_char == '_', 1);
+                // Start of integer or float literal
                 else TRANSITION_NONSINGLE(isdigit(next_char), 143);
-                else RETRACT_THEN_ACCEPT("End of File",
-                                         EOF);
+                // End of File
+                else RETRACT_THEN_ACCEPT("End of File", EOF);
                 break;
-
-            case 1:
-                get_next_char();
-                TRANSITION_NONSINGLE(isalnum(next_char) || next_char == '_', 1);
-                else RETRACT_THEN_ACCEPT("Identifier",
-                                         IDENTIFIER);
-                break;
-
-            case 2:
-                get_next_char();
-                TRANSITION('+', 3);
-                else RETRACT_THEN_ACCEPT("Plus Sign (or Addition Operator)",
-                                         ADD_OP);
-                break;
-
-            case 3:
-                ACCEPT("Increment Operator",
-                       INC_OP);
-
-            case 4:
-                get_next_char();
-                TRANSITION('-', 5);
-                else RETRACT_THEN_ACCEPT("Hyphen",
-                                         HYPHEN);
-                break;
-
-            case 5:
-                ACCEPT("Decrement Operator",
-                       DEC_OP);
-
-            case 6:
-                get_next_char();
-                TRANSITION('*', 7);
-                else RETRACT_THEN_ACCEPT("Asterisk Symbol (or Multiplication Operator)",
-                                         MUL_OP);
-                break;
-            case 7:
-                ACCEPT("Exponentiation Operator",
-                       EXP_OP);
-
-            case 8:
-                get_next_char();
-                TRANSITION('/', 9);
-                else RETRACT_THEN_ACCEPT("Forward Slash Symbol",
-                                         FW_SLASH);
-                break;
-
-            case 9:
-                ACCEPT("Floor Division Operator",
-                       FLR_OP);
-
-            case 10:
-                ACCEPT("Modulus Operator",
-                       MOD_OP);
-
-            case 11:
-                get_next_char();
-                TRANSITION('&', 12);
-                else RETRACT_THEN_ACCEPT("Bitwise AND Operator",
-                                         BITWISE_AND_OP);;
-                break;
-
-            case 12:
-                ACCEPT("Logical AND Operator",
-                       LOGIC_AND_OP);
-
-            case 13:
-                get_next_char();
-                TRANSITION('|', 14);
-                else RETRACT_THEN_ACCEPT("Bitwise OR Operator",
-                                         BITWISE_OR_OP);
-                break;
-
-            case 14:
-                ACCEPT("Logical OR Operator",
-                       LOGIC_OR_OP);
-
-            case 15:
-                ACCEPT("Bitwise NOT Operator",
-                       BITWISE_NOT_OP);
-
-            case 16:
-                get_next_char();
-                TRANSITION('=', 18);
-                else RETRACT_THEN_ACCEPT("Logical NOT Operator",
-                                         LOGIC_NOT_OP);
-                break;
-
-            case 17:
-                ACCEPT("Bitwise XOR Operator",
-                       BITWISE_XOR_OP);
-
-            case 18:
-                ACCEPT("Relational Not Equal Operator",
-                       NOT_EQ_OP);
-
-            case 19:
-                get_next_char();
-                TRANSITION('=', 20);
-                else RETRACT_THEN_ACCEPT("Equal Sign",
-                                         EQ_SIGN);
-                break;
-
-            case 20:
-                ACCEPT("Relational Equal Operator",
-                       EQ_OP);
-
-            case 21:
-                get_next_char();
-                TRANSITION('=', 22);
-                else TRANSITION('>', 23);
-                else RETRACT_THEN_ACCEPT("Right Angle Bracket",
-                                         RBRACKET);
-                break;
-
-            case 22:
-                ACCEPT("Relational Greater Than or Equal Operator",
-                       GT_EQ_OP);
-
-            case 23:
-                ACCEPT("Bitwise Shift Right Operator",
-                       BITWISE_RIGHT_OP);
-
-            case 24:
-                get_next_char();
-                TRANSITION('=', 25);
-                else TRANSITION('<', 26);
-                else RETRACT_THEN_ACCEPT("Left Angle Bracket",
-                                         LBRACKET);
-                break;
-
-            case 25:
-                ACCEPT("Relational Less Than or Equal Operator",
-                       LT_EQ_OP);
-
-            case 26:
-                ACCEPT("Bitwise Shift Left Operator",
-                       BITWISE_LEFT_OP);
-
-            case 27:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('r', 28));
-
-            case 28:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('i', 29));
-
-            case 29:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('m', 30));
-
-            case 30:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('_', 31));
-
-            case 31:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('d', 32));
-
-            case 32:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 33));
-
-            case 33:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('c', 34));
-
-            case 34:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('l', 35));
-
-            case 35:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('a', 36));
-
-            case 36:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('r', 37));
-
-            case 37:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 38));
-
-            case 38:
-                ACCEPT("Primitive Declaration",
-                       PRIM_DECLARE);
-
-            case 39:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('i', 40));
-
-            case 40:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('s', 41));
-                
-            case 41:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('t', 42));
-
-            case 42:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('_', 43));
-
-            case 43:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('d', 44));
-
-            case 44:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 45));
-
-            case 45:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('c', 46));
-
-            case 46:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('l', 47));
-
-            case 47:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('a', 48));
-
-            case 48:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('r', 49));
-
-            case 49:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 50));
-
-            case 50:
-                ACCEPT("List Declaration",
-                       LIST_DECLARE)
-
-            case 51:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('l', 52);
-                                           TRANSITION('x', 109);
-                                           TRANSITION('v', 115));
-
-            case 52:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 53);
-                                           TRANSITION('i', 63);
-                                           TRANSITION('s', 65));
-                
-            case 53:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('m', 54));
-
-            case 54:
-                ACCEPT("Element",
-                       ELEM)
-
-            case 55:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('s', 56));
-
-            case 56:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('s', 57));
-
-            case 57:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('i', 58));
-
-            case 58:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('g', 59));
-
-            case 59:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('n', 60));
-
-            case 60:
-                ACCEPT("Assign",
-                       ASSIGN)
-
-            case 61:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('f', 62);
-                                           TRANSITION('d', 100));
-
-            case 62:
-                ACCEPT("If",
-                       ASSIGN)
-
-            case 63:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('f', 64));
-
-            case 64:
-                ACCEPT("Else If",
-                       ELIF)
-
-            case 65:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 66));
-
-            case 66:
-                ACCEPT("Else",
-                       ELSE)
-
-            case 67:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('r', 68));
-
-            case 68:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 69));
-
-            case 69:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('a', 70));
-
-            case 70:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('k', 71));
-
-            case 71:
-                ACCEPT("Break",
-                       BREAK)
-
-            case 72:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('o', 73);
-                                           TRANSITION('a', 86));
-
-            case 73:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('n', 74));
-
-            case 74:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('t', 75);
-                                           TRANSITION('s', 118));
-
-            case 75:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('i', 76));
-
-            case 76:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('n', 77));
-
-            case 77:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('u', 78));
-
-            case 78:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 79));
-
-            case 79:
-                ACCEPT("Continue",
-                       CONTINUE)
-
-            case 80:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('w', 81);
-                                           TRANSITION('i', 112));
-
-            case 81:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('i', 82));
-
-            case 82:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('t', 83));
-
-            case 83:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('c', 84));
-
-            case 84:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('h', 85));
-            
-            case 85:
-                ACCEPT("Switch",
-                       SWITCH)
-
-            case 86:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('s', 87));
-
-            case 87:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 88));
-
-            case 89:
-                ACCEPT("Case",
-                       CASe)
-
-            case 90:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('h', 91));
-
-            case 91:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('i', 92));
-
-            case 92:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('l', 93));
-
-            case 93:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 94));
-
-            case 94:
-                ACCEPT("While",
-                       WHILE)
-
-            case 95:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('y', 96));
-
-            case 96:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('p', 97));
-
-            case 97:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 98));
-
-            case 98:
-                ACCEPT("Type",
-                       TYPE)
-
-            //case 99 skipped
-
-            case 100:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 101));
-
-            case 101:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('n', 102));
-
-            case 102:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('t', 103));
-
-            case 103:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('i', 104));
-
-            case 104:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('f', 105));
-
-            case 105:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('i', 106));
-
-            case 106:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 107));
-
-            case 107:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('r', 108));
-
-            case 108:
-                ACCEPT("Identifier",
-                       IDENTIFIER)
-
-            case 109:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('p', 110));
-
-            case 110:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('r', 111));
-
-            case 111:
-                ACCEPT("Expression",
-                       EXPR)
-
-            case 112:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('z', 113));
-
-            case 113:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('e', 114));
-
-            case 114:
-                ACCEPT("Size",
-                       SIZE)
-
-            case 115:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('a', 116));
-
-            case 116:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('l', 117));
-
-            case 117:
-                ACCEPT("Evaluate",
-                       EVAL)
-            
-            case 118:
-                KEY_OR_RESERVED_WORD_STATE(TRANSITION('t', 119));
-
-            case 119:
-                ACCEPT("Constant",
-                       CONST)
-
-            case 135:
-                ACCEPT("Left Parenthesis",
-                       LPAREN);
-
-            case 136:
-                ACCEPT("Right Parenthesis",
-                       RPAREN);
-
-            case 137:
-                ACCEPT("Single Quote",
-                       SINGLE_QUOTE);
-
-            case 138:
-                ACCEPT("Double Quote",
-                       DOUBLE_QUOTE);
-
-            case 139:
-                ACCEPT("Comma",
-                       COMMA);
-                
-            case 140:
-                ACCEPT("Left Square Bracket",
-                       LBRACKET);
-                
-            case 141:
-                ACCEPT("Right Square Bracket",
-                       RBRACKET);
-
-            case 142:
-                ACCEPT("Dot",
-                       DOT);
-
-            case 143:
-                get_next_char();
-                TRANSITION_NONSINGLE(isdigit(next_char), 143);
-                else TRANSITION('.', 144);
-                else ACCEPT("Integer Literal",
-                            INT_LITERAL);
-                break;
-
-            case 144:
-                get_next_char();
-                TRANSITION_NONSINGLE(isdigit(next_char), 145);
-                else {
-                    lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = '0';
-                    RETRACT_THEN_ACCEPT("Float Literal",
-                                        FLOAT_LITERAL);
-                }
-                break;
-
-            case 145:
-                get_next_char();
-                TRANSITION_NONSINGLE(isdigit(next_char), 145);
-                else RETRACT_THEN_ACCEPT("Float Literal",
-                                         FLOAT_LITERAL);
-                break;
+            case 1: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION_NONSINGLE(
+                            isalnum(next_char) || next_char == '_', 1),
+                        RETRACT_THEN_ACCEPT("Identifier", IDENTIFIER));
+            case 2: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('+', 3),
+                        RETRACT_THEN_ACCEPT("Plus Sign", ADD_OP));
+            case 3: ACCEPT("Increment Operator", INC_OP);
+            case 4: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('-', 5),
+                        RETRACT_THEN_ACCEPT("Hyphen", HYPHEN));
+            case 5: ACCEPT("Decrement Operator", DEC_OP);
+            case 6: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('*', 7),
+                        RETRACT_THEN_ACCEPT("Asterisk Symbol (or Multiplication Operator)", MUL_OP));
+            case 7: ACCEPT("Exponentiation Operator", EXP_OP);
+            case 8: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('/', 9),
+                        RETRACT_THEN_ACCEPT("Forward Slash Symbol", FW_SLASH));
+            case 9: ACCEPT("Floor Division Operator", FLR_OP);
+            case 10: ACCEPT("Modulus Operator", MOD_OP);
+            case 11: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('&', 12),
+                        RETRACT_THEN_ACCEPT("Bitwise AND Operator", BITWISE_AND_OP));
+            case 12: ACCEPT("Logical AND Operator", LOGIC_AND_OP);
+            case 13: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('|', 14),
+                        RETRACT_THEN_ACCEPT("Bitwise OR Operator", BITWISE_OR_OP));
+            case 14: ACCEPT("Logical OR Operator", LOGIC_OR_OP);
+            case 15: ACCEPT("Bitwise NOT Operator", BITWISE_NOT_OP);
+            case 16: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('=', 18),
+                        RETRACT_THEN_ACCEPT("Logical NOT Operator", LOGIC_NOT_OP));
+            case 17: ACCEPT("Bitwise XOR Operator", BITWISE_XOR_OP);
+            case 18: ACCEPT("Relational Not Equal Operator", NOT_EQ_OP);
+            case 19: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('=', 20),
+                        RETRACT_THEN_ACCEPT("Equal Sign", EQ_SIGN));
+            case 20: ACCEPT("Relational Equal Operator", EQ_OP);
+            case 21: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('=', 22);
+                        else TRANSITION('>', 23),
+                        RETRACT_THEN_ACCEPT("Right Angle Bracket", RBRACKET));
+            case 22: ACCEPT("Greater Than or Equal Operator", GT_EQ_OP);
+            case 23: ACCEPT("Bitwise Shift Right Operator", BITWISE_RIGHT_OP);
+            case 24: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION('=', 25);
+                        else TRANSITION('<', 26),
+                        RETRACT_THEN_ACCEPT("Left Angle Bracket", LBRACKET));
+            case 25: ACCEPT("Less Than or Equal Operator", LT_EQ_OP);
+            case 26: ACCEPT("Bitwise Shift Left Operator", BITWISE_LEFT_OP);
+            case 27: WORD_STATE(TRANSITION('r', 28));
+            case 28: WORD_STATE(TRANSITION('i', 29));
+            case 29: WORD_STATE(TRANSITION('m', 30));
+            case 30: WORD_STATE(TRANSITION('_', 31));
+            case 31: WORD_STATE(TRANSITION('d', 32));
+            case 32: WORD_STATE(TRANSITION('e', 33));
+            case 33: WORD_STATE(TRANSITION('c', 34));
+            case 34: WORD_STATE(TRANSITION('l', 35));
+            case 35: WORD_STATE(TRANSITION('a', 36));
+            case 36: WORD_STATE(TRANSITION('r', 37));
+            case 37: WORD_STATE(TRANSITION('e', 38));
+            case 38: ACCEPT("Primitive Declaration Keyword", PRIM_DECLARE_KW);
+            case 39: WORD_STATE(TRANSITION('i', 40));
+            case 40: WORD_STATE(TRANSITION('s', 41));
+            case 41: WORD_STATE(TRANSITION('t', 42));
+            case 42: WORD_STATE(TRANSITION('_', 43));
+            case 43: WORD_STATE(TRANSITION('d', 44));
+            case 44: WORD_STATE(TRANSITION('e', 45));
+            case 45: WORD_STATE(TRANSITION('c', 46));
+            case 46: WORD_STATE(TRANSITION('l', 47));
+            case 47: WORD_STATE(TRANSITION('a', 48));
+            case 48: WORD_STATE(TRANSITION('r', 49));
+            case 49: WORD_STATE(TRANSITION('e', 50));
+            case 50: ACCEPT("List Declaration Keyword", LIST_DECLARE_KW);
+            case 51: WORD_STATE(
+                        TRANSITION('l', 52);
+                        else TRANSITION('x', 109);
+                        else TRANSITION('v', 115));
+            case 52: WORD_STATE(
+                        TRANSITION('e', 53);
+                        else TRANSITION('i', 63);
+                        else TRANSITION('s', 65));
+            case 53: WORD_STATE(TRANSITION('m', 54));
+            case 54: ACCEPT("Element Keyword", ELEM_KW);
+            case 55: WORD_STATE(TRANSITION('s', 56));
+            case 56: WORD_STATE(TRANSITION('s', 57));
+            case 57: WORD_STATE(TRANSITION('i', 58));
+            case 58: WORD_STATE(TRANSITION('g', 59));
+            case 59: WORD_STATE(TRANSITION('n', 60));
+            case 60: ACCEPT("Assign Keyword", ASSIGN_KW);
+            case 61: WORD_STATE(
+                        TRANSITION('f', 62);
+                        else TRANSITION('d', 100));
+            case 62: ACCEPT("If Keyword", IF_KW);
+            case 63: WORD_STATE(TRANSITION('f', 64));
+            case 64: ACCEPT("Else If Keyword", ELIF_KW);
+            case 65: WORD_STATE(TRANSITION('e', 66));
+            case 66: ACCEPT("Else Keyword", ELSE_KW);
+            case 67: WORD_STATE(TRANSITION('r', 68));
+            case 68: WORD_STATE(TRANSITION('e', 69));
+            case 69: WORD_STATE(TRANSITION('a', 70));
+            case 70: WORD_STATE(TRANSITION('k', 71));
+            case 71: ACCEPT("Break Keyword", BREAK_KW);
+            case 72: WORD_STATE(
+                        TRANSITION('o', 73);
+                        else TRANSITION('a', 86));
+            case 73: WORD_STATE(TRANSITION('n', 74));
+            case 74: WORD_STATE(
+                        TRANSITION('t', 75);
+                        else TRANSITION('s', 118));
+            case 75: WORD_STATE(TRANSITION('i', 76));
+            case 76: WORD_STATE(TRANSITION('n', 77));
+            case 77: WORD_STATE(TRANSITION('u', 78));
+            case 78: WORD_STATE(TRANSITION('e', 79));
+            case 79: ACCEPT("Continue", CONTINUE_KW);
+            case 80: WORD_STATE(
+                        TRANSITION('w', 81);
+                        else TRANSITION('i', 112));
+            case 81: WORD_STATE(TRANSITION('i', 82));
+            case 82: WORD_STATE(TRANSITION('t', 83));
+            case 83: WORD_STATE(TRANSITION('c', 84));
+            case 84: WORD_STATE(TRANSITION('h', 85));
+            case 85: ACCEPT("Switch Keyword", SWITCH_KW);;
+            case 86: WORD_STATE(TRANSITION('s', 87));
+            case 87: WORD_STATE(TRANSITION('e', 88));
+            case 89: ACCEPT("Case Keyword", CASE_KW);
+            case 90: WORD_STATE(TRANSITION('h', 91));
+            case 91: WORD_STATE(TRANSITION('i', 92));
+            case 92: WORD_STATE(TRANSITION('l', 93));
+            case 93: WORD_STATE(TRANSITION('e', 94));
+            case 94: ACCEPT("While Keyword", WHILE_KW);
+            case 95: WORD_STATE(TRANSITION('y', 96));
+            case 96: WORD_STATE(TRANSITION('p', 97));
+            case 97: WORD_STATE(TRANSITION('e', 98));
+            case 98: ACCEPT("Type Keyword", TYPE_KW);
+            // state 99 skipped
+            case 100: WORD_STATE(TRANSITION('e', 101));
+            case 101: WORD_STATE(TRANSITION('n', 102));
+            case 102: WORD_STATE(TRANSITION('t', 103));
+            case 103: WORD_STATE(TRANSITION('i', 104));
+            case 104: WORD_STATE(TRANSITION('f', 105));
+            case 105: WORD_STATE(TRANSITION('i', 106));
+            case 106: WORD_STATE(TRANSITION('e', 107));
+            case 107: WORD_STATE(TRANSITION('r', 108));
+            case 108: ACCEPT("Identifier Keyword", IDENTIFIER_KW);
+            case 109: WORD_STATE(TRANSITION('p', 110));
+            case 110: WORD_STATE(TRANSITION('r', 111));
+            case 111: ACCEPT("Expression Keyword", EXPR_KW);
+            case 112: WORD_STATE(TRANSITION('z', 113));
+            case 113: WORD_STATE(TRANSITION('e', 114));
+            case 114: ACCEPT("Size Keyword", SIZE_KW);
+            case 115: WORD_STATE(TRANSITION('a', 116));
+            case 116: WORD_STATE(TRANSITION('l', 117));
+            case 117: ACCEPT("Evaluate Keyword", EVAL_KW);
+            case 118: WORD_STATE(TRANSITION('t', 119));
+            case 119: ACCEPT("Constant", CONST_KW);
+            case 135: ACCEPT("Left Parenthesis", LPAREN);
+            case 136: ACCEPT("Right Parenthesis", RPAREN);
+            case 137: ACCEPT("Single Quote", SINGLE_QUOTE);
+            case 138: ACCEPT("Double Quote", DOUBLE_QUOTE);
+            case 139: ACCEPT("Comma", COMMA);
+            case 140: ACCEPT("Left Square Bracket", LBRACKET);
+            case 141: ACCEPT("Right Square Bracket", RBRACKET);
+            case 142: ACCEPT("Dot", DOT);
+            case 143: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION_NONSINGLE(isdigit(next_char), 143);
+                        else TRANSITION('.', 144),
+                        RETRACT_THEN_ACCEPT("Integer Literal", INT_LITERAL));
+            case 144: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION_NONSINGLE(isdigit(next_char), 145),
+                        { retract_char(1); lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = '0'; current_state = 145; });
+            case 145: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION_NONSINGLE(isdigit(next_char), 145),
+                        RETRACT_THEN_ACCEPT("Float Literal", FLOAT_LITERAL));
         }
     }
 }
