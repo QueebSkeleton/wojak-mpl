@@ -39,28 +39,29 @@
         ACCEPT(token_str, rep); \
     } while(0)
 
-// MACRO for keywords, each letter state
-// Given that keywords follow the same principle for a machine;
-// 1: When it reads an appropriate keyword letter, heads to next state
-// 2: Else, when it reads another character/number/underscore, heads
-//    to identifier state.
-// 3: Last case, when a diff. character is encountered, retract then
-//    head to identifier state.
-#define WORD_STATE(transitions) \
-    FINAL_STATE_WITH_TRANSITION( \
-        transitions; \
-        else TRANSITION_NONSINGLE(isalnum(next_char) || '_', 1), \
-        do { retract_char(1); current_state = 1; } while(0))
-
 // MACRO for a generic final state that has transitions
 // when reading appropriate input
 // otherwise, the accept will be executed.
 #define FINAL_STATE_WITH_TRANSITION(transitions, accept) \
-    do { \
-        get_next_char(); \
-        transitions; \
-        else accept; \
-    } while(0); break
+    get_next_char(); \
+    transitions; \
+    else accept; \
+    break
+
+// MACRO for keywords, each letter state
+// Given that keywords follow the same principle for a machine;
+// 1: When it reads an appropriate keyword letter, heads to next state
+// 2: When a diff. character is encountered, retract then
+//    head to identifier state.
+#define WORD_STATE(transitions) \
+    FINAL_STATE_WITH_TRANSITION( \
+        transitions, \
+        do { retract_char(1); current_state = 1; } while(0))
+
+#define ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(token_str, rep) \
+    FINAL_STATE_WITH_TRANSITION( \
+        TRANSITION_NONSINGLE(isalnum(next_char) || next_char == '_', 1), \
+        RETRACT_THEN_ACCEPT(token_str, rep))
 
 #define IDENTIFIER 0
 #define ADD_OP 1
@@ -374,7 +375,8 @@ token* lex() {
             case 35: WORD_STATE(TRANSITION('a', 36));
             case 36: WORD_STATE(TRANSITION('r', 37));
             case 37: WORD_STATE(TRANSITION('e', 38));
-            case 38: ACCEPT("Primitive Declaration Keyword", PRIM_DECLARE_KW);
+            case 38: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "prim_declare Keyword", PRIM_DECLARE_KW);
             case 39: WORD_STATE(TRANSITION('i', 40));
             case 40: WORD_STATE(TRANSITION('s', 41));
             case 41: FINAL_STATE_WITH_TRANSITION(
@@ -389,7 +391,8 @@ token* lex() {
             case 47: WORD_STATE(TRANSITION('a', 48));
             case 48: WORD_STATE(TRANSITION('r', 49));
             case 49: WORD_STATE(TRANSITION('e', 50));
-            case 50: ACCEPT("List Declaration Keyword", LIST_DECLARE_KW);
+            case 50: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "list_declare Keyword", LIST_DECLARE_KW);
             case 51: WORD_STATE(
                         TRANSITION('l', 52);
                         else TRANSITION('x', 109);
@@ -400,29 +403,35 @@ token* lex() {
                         else TRANSITION('i', 63);
                         else TRANSITION('s', 65));
             case 53: WORD_STATE(TRANSITION('m', 54));
-            case 54: ACCEPT("Element Keyword", ELEM_KW);
+            case 54: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "elem Keyword", ELEM_KW);
             case 55: WORD_STATE(TRANSITION('s', 56);
                         else TRANSITION('n', 120));
             case 56: WORD_STATE(TRANSITION('s', 57));
             case 57: WORD_STATE(TRANSITION('i', 58));
             case 58: WORD_STATE(TRANSITION('g', 59));
             case 59: WORD_STATE(TRANSITION('n', 60));
-            case 60: ACCEPT("Assign Keyword", ASSIGN_KW);
+            case 60: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "assign Keyword", ASSIGN_KW);
             case 61: WORD_STATE(
                         TRANSITION('f', 62);
                         else TRANSITION('d', 100);
                         else TRANSITION('n', 146));
-            case 62: ACCEPT("If Keyword", IF_KW);
+            case 62: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "if Keyword", IF_KW);
             case 63: WORD_STATE(TRANSITION('f', 64));
-            case 64: ACCEPT("Else If Keyword", ELIF_KW);
+            case 64: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "elif Keyword", ELIF_KW);
             case 65: WORD_STATE(TRANSITION('e', 66));
-            case 66: ACCEPT("Else Keyword", ELSE_KW);
+            case 66: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "else Keyword", ELSE_KW);
             case 67: WORD_STATE(TRANSITION('r', 68);
                         else TRANSITION('e', 129));
             case 68: WORD_STATE(TRANSITION('e', 69));
             case 69: WORD_STATE(TRANSITION('a', 70));
             case 70: WORD_STATE(TRANSITION('k', 71));
-            case 71: ACCEPT("Break Keyword", BREAK_KW);
+            case 71: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "break Keyword", BREAK_KW);
             case 72: WORD_STATE(
                         TRANSITION('o', 73);
                         else TRANSITION('n', 86));
@@ -434,7 +443,8 @@ token* lex() {
             case 76: WORD_STATE(TRANSITION('n', 77));
             case 77: WORD_STATE(TRANSITION('u', 78));
             case 78: WORD_STATE(TRANSITION('e', 79));
-            case 79: ACCEPT("Continue", CONTINUE_KW);
+            case 79: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "continue Keyword", CONTINUE_KW);
             case 80: WORD_STATE(
                         TRANSITION('w', 81);
                         else TRANSITION('i', 112));
@@ -442,23 +452,27 @@ token* lex() {
             case 82: WORD_STATE(TRANSITION('t', 83));
             case 83: WORD_STATE(TRANSITION('c', 84));
             case 84: WORD_STATE(TRANSITION('h', 85));
-            case 85: ACCEPT("Switch Keyword", SWITCH_KW);
+            case 85: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "switch Keyword", SWITCH_KW);
             case 86: WORD_STATE(TRANSITION('s', 87));
             case 87: WORD_STATE(TRANSITION('e', 88));
-            case 89: ACCEPT("Case Keyword", CASE_KW);
+            case 89: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "case Keyword", CASE_KW);
             case 90: WORD_STATE(TRANSITION('h', 91);
                         else TRANSITION('i', 155));
             case 91: WORD_STATE(TRANSITION('i', 92));
             case 92: WORD_STATE(TRANSITION('l', 93));
             case 93: WORD_STATE(TRANSITION('e', 94));
-            case 94: ACCEPT("While Keyword", WHILE_KW);
+            case 94: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "while Keyword", WHILE_KW);
             case 95: WORD_STATE( 
                         TRANSITION('y', 96);
                         else TRANSITION('h', 142);
                         else TRANSITION('o', 145));
             case 96: WORD_STATE(TRANSITION('p', 97));
             case 97: WORD_STATE(TRANSITION('e', 98));
-            case 98: ACCEPT("Type Keyword", TYPE_KW);
+            case 98: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "type Keyword", TYPE_KW);
             // state 99 skipped
             case 100: WORD_STATE(TRANSITION('e', 101));
             case 101: WORD_STATE(TRANSITION('n', 102));
@@ -468,10 +482,12 @@ token* lex() {
             case 105: WORD_STATE(TRANSITION('i', 106));
             case 106: WORD_STATE(TRANSITION('e', 107));
             case 107: WORD_STATE(TRANSITION('r', 108));
-            case 108: ACCEPT("Identifier Keyword", IDENTIFIER_KW);
+            case 108: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "identifier Keyword", IDENTIFIER_KW);
             case 109: WORD_STATE(TRANSITION('p', 110));
             case 110: WORD_STATE(TRANSITION('r', 111));
-            case 111: ACCEPT("Expression Keyword", EXPR_KW);
+            case 111: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "expr Keyword", EXPR_KW);
             case 112: WORD_STATE(TRANSITION('z', 113));
             case 113: WORD_STATE(TRANSITION('e', 114));
             case 114: FINAL_STATE_WITH_TRANSITION(
@@ -480,28 +496,38 @@ token* lex() {
                         RETRACT_THEN_ACCEPT("size Keyword", SIZE_KW));
             case 115: WORD_STATE(TRANSITION('a', 116));
             case 116: WORD_STATE(TRANSITION('l', 117));
-            case 117: ACCEPT("Evaluate Keyword", EVAL_KW);
+            case 117: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "eval Keyword", EVAL_KW);
             case 118: WORD_STATE(TRANSITION('t', 119));
-            case 119: ACCEPT("Constant", CONST_KW);
+            case 119: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "const keyword", CONST_KW);
             case 120: WORD_STATE(TRANSITION('d', 121));
-            case 121: ACCEPT("and Reserved word", AND_RW);
+            case 121: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "and Reserved word", AND_RW);
             case 122: WORD_STATE(TRANSITION('r', 123));
-            case 123: ACCEPT("or Reserved Word", OR_RW);
+            case 123: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "or Reserved Word", OR_RW);
             case 124: WORD_STATE(TRANSITION('o', 125));
             case 125: WORD_STATE(TRANSITION('t', 126));
-            case 126: ACCEPT("not", NOT_RW);
+            case 126: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "not Reserved Word", NOT_RW);
             case 127: WORD_STATE(TRANSITION('f', 128));
-            case 128: ACCEPT("sizeof Reserved Word", SIZEOF_RW);
+            case 128: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "sizeof Reserved Word", SIZEOF_RW);
             case 129: WORD_STATE(TRANSITION('g', 130));
             case 130: WORD_STATE(TRANSITION('i', 131));
             case 131: WORD_STATE(TRANSITION('n', 132));
-            case 132: ACCEPT("begin Reserved Word", BEGIN_RW);
+            case 132: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "begin Reserved Word", BEGIN_RW);
             case 133: WORD_STATE(TRANSITION('d', 134));
-            case 134: ACCEPT("end Reserved Word", END_RW);
+            case 134: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "end Reserved Word", END_RW);
             case 142: WORD_STATE(TRANSITION('e', 143));
             case 143: WORD_STATE(TRANSITION('n', 144));
-            case 144: ACCEPT("then Noise Word", THEN_NW);
-            case 145: ACCEPT("to Noise Word", TO_NW);
+            case 144: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "then Noise Word", THEN_NW);
+            case 145: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "to Noise Word", TO_NW);
             case 146: WORD_STATE(TRANSITION('i', 147));
             case 147: WORD_STATE(TRANSITION('t', 148));
             case 148: WORD_STATE(TRANSITION('i', 149));
@@ -510,15 +536,18 @@ token* lex() {
             case 151: WORD_STATE(TRANSITION('i', 152));
             case 152: WORD_STATE(TRANSITION('z', 153));
             case 153: WORD_STATE(TRANSITION('e', 154));
-            case 154: ACCEPT("initialize Noise Word", INITIALIZE_NW);
+            case 154: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "initialize Noise Word", INITIALIZE_NW);
             case 155: WORD_STATE(TRANSITION('t', 156));
             case 156: WORD_STATE(TRANSITION('h', 157));
-            case 157: ACCEPT("with Noise Word", WITH_NW);
+            case 157: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "with Noise Word", WITH_NW);
             case 158: WORD_STATE(TRANSITION('c', 159));
             case 159: WORD_STATE(TRANSITION('e', 160));
             case 160: WORD_STATE(TRANSITION('e', 161));
             case 161: WORD_STATE(TRANSITION('d', 162));
-            case 162: ACCEPT("proceed Noise Word", PROCEED_NW);
+            case 162: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "proceed Noise Word", PROCEED_NW);
             case 163: TRANSITION('-', 164);
             case 164: TRANSITION('-', 165);
             case 165: ACCEPT("Comment Begin", COMMENT_BEGIN);
