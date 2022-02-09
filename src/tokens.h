@@ -82,6 +82,9 @@ enum tokens {
     STRING_KW,
     BOOL_KW,
 
+    TRUE_KW,
+    FALSE_KW,
+
     // Reserved Words
     AND_RW,
     OR_RW,

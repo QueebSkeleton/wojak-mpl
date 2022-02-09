@@ -292,7 +292,7 @@ void lex() {
                 // Start of integer or float literal
                 else TRANSITION_NONSINGLE(isdigit(next_char), 177);
                 // End of File
-                else TRANSITION(EOF, 199);
+                else TRANSITION(EOF, 206);
                 // Invalid token
                 else printf("Unrecognized token %c\n.", next_char);
                 break;
@@ -456,7 +456,8 @@ void lex() {
             case 95: WORD_STATE( 
                         TRANSITION('y', 96);
                         else TRANSITION('h', 142);
-                        else TRANSITION('o', 145));
+                        else TRANSITION('o', 145);
+                        else TRANSITION('r', 199));
             case 96: WORD_STATE(TRANSITION('p', 97));
             case 97: WORD_STATE(TRANSITION('e', 98));
             case 98: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
@@ -571,14 +572,14 @@ void lex() {
             case 175: ACCEPT("Left Curly Brace", LCBRACE);
             case 176: ACCEPT("Right Curly Brace", RCBRACE);
             case 177: FINAL_STATE_WITH_TRANSITION(
-                        TRANSITION_NONSINGLE(isdigit(next_char), 175);
-                        else TRANSITION('.', 176),
+                        TRANSITION_NONSINGLE(isdigit(next_char), 177);
+                        else TRANSITION('.', 178),
                         RETRACT_THEN_ACCEPT("Integer Literal", INT_LITERAL));
             case 178: FINAL_STATE_WITH_TRANSITION(
-                        TRANSITION_NONSINGLE(isdigit(next_char), 177),
+                        TRANSITION_NONSINGLE(isdigit(next_char), 179),
                         { retract_char(1); lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = '0'; current_state = 177; });
             case 179: FINAL_STATE_WITH_TRANSITION(
-                        TRANSITION_NONSINGLE(isdigit(next_char), 145),
+                        TRANSITION_NONSINGLE(isdigit(next_char), 179),
                         RETRACT_THEN_ACCEPT("Float Literal", FLOAT_LITERAL));
             case 180: ACCEPT("String Literal", STR_LITERAL);
             case 181: {
@@ -602,7 +603,9 @@ void lex() {
             case 188: WORD_STATE(TRANSITION('g', 189));
             case 189: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
                         "string Keyword (Attrib Value)", STRING_KW);
-            case 190: WORD_STATE(TRANSITION('l', 191));
+            case 190: WORD_STATE(
+                        TRANSITION('l', 191);
+                        else TRANSITION('a', 202));
             case 191: WORD_STATE(TRANSITION('o', 192));
             case 192: WORD_STATE(TRANSITION('a', 193));
             case 193: WORD_STATE(TRANSITION('t', 194));
@@ -613,7 +616,16 @@ void lex() {
             case 197: WORD_STATE(TRANSITION('l', 198));
             case 198: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
                         "bool Keyword (Attrib Value)", BOOL_KW);
-            case 199: ACCEPT("End of File", EOF);
+            case 199: WORD_STATE(TRANSITION('u', 200));
+            case 200: WORD_STATE(TRANSITION('e', 201));
+            case 201: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "true Literal", TRUE_KW);
+            case 202: WORD_STATE(TRANSITION('l', 203));
+            case 203: WORD_STATE(TRANSITION('s', 204));
+            case 204: WORD_STATE(TRANSITION('e', 205));
+            case 205: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "false Literal", FALSE_KW);
+            case 206: ACCEPT("End of File", EOF);
         }
     }
 }

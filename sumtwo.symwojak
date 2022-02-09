@@ -1,4 +1,4 @@
-<!-- hello world -->,35,Comment
+<!-- Variables needed -->,35,Comment
 <,31,Left Angle Bracket
 prim_declare,42,prim_declare Keyword
 type,54,type Keyword
@@ -11,12 +11,19 @@ identifier,55,identifier Keyword
 {,37,Left Curly Brace
 a,0,Identifier
 },38,Right Curly Brace
-expr,56,expr Keyword
+/,7,Forward Slash Symbol
+>,32,Right Angle Bracket
+<,31,Left Angle Bracket
+prim_declare,42,prim_declare Keyword
+type,54,type Keyword
 =,19,Equal Sign
 {,37,Left Curly Brace
-1,39,Integer Literal
-+,1,Plus Sign
-1,39,Integer Literal
+int,60,int Keyword (Attrib Value)
+},38,Right Curly Brace
+identifier,55,identifier Keyword
+=,19,Equal Sign
+{,37,Left Curly Brace
+b,0,Identifier
 },38,Right Curly Brace
 /,7,Forward Slash Symbol
 >,32,Right Angle Bracket
@@ -25,61 +32,82 @@ prim_declare,42,prim_declare Keyword
 type,54,type Keyword
 =,19,Equal Sign
 {,37,Left Curly Brace
-string,62,string Keyword (Attrib Value)
+int,60,int Keyword (Attrib Value)
 },38,Right Curly Brace
 identifier,55,identifier Keyword
 =,19,Equal Sign
 {,37,Left Curly Brace
-a,0,Identifier
-},38,Right Curly Brace
-expr,56,expr Keyword
-=,19,Equal Sign
-{,37,Left Curly Brace
-'aasd',41,String Literal
+sum,0,Identifier
 },38,Right Curly Brace
 /,7,Forward Slash Symbol
 >,32,Right Angle Bracket
 <,31,Left Angle Bracket
-prim_declare,42,prim_declare Keyword
-type,54,type Keyword
-=,19,Equal Sign
-{,37,Left Curly Brace
-bool,0,Identifier
-},38,Right Curly Brace
-identifier,55,identifier Keyword
-=,19,Equal Sign
-{,37,Left Curly Brace
-a,0,Identifier
-},38,Right Curly Brace
+out,0,Identifier
 expr,56,expr Keyword
 =,19,Equal Sign
 {,37,Left Curly Brace
-true,64,true Literal
-&&,16,Logical AND Operator
-true,64,true Literal
+"Enter first number:",41,String Literal
 },38,Right Curly Brace
 /,7,Forward Slash Symbol
 >,32,Right Angle Bracket
 <,31,Left Angle Bracket
-prim_declare,42,prim_declare Keyword
-type,54,type Keyword
-=,19,Equal Sign
-{,37,Left Curly Brace
-float,61,float Keyword (Attrib Value)
-},38,Right Curly Brace
+in,0,Identifier
 identifier,55,identifier Keyword
 =,19,Equal Sign
 {,37,Left Curly Brace
 a,0,Identifier
 },38,Right Curly Brace
+/,7,Forward Slash Symbol
+>,32,Right Angle Bracket
+<,31,Left Angle Bracket
+out,0,Identifier
 expr,56,expr Keyword
 =,19,Equal Sign
 {,37,Left Curly Brace
-1235.66,40,Float Literal
-+,1,Plus Sign
-1235,39,Integer Literal
-+,1,Plus Sign
-4363.64,40,Float Literal
+"Enter second number:",41,String Literal
 },38,Right Curly Brace
+/,7,Forward Slash Symbol
+>,32,Right Angle Bracket
+<,31,Left Angle Bracket
+in,0,Identifier
+identifier,55,identifier Keyword
+=,19,Equal Sign
+{,37,Left Curly Brace
+b,0,Identifier
+},38,Right Curly Brace
+/,7,Forward Slash Symbol
+>,32,Right Angle Bracket
+<!-- Calculate the
+sum -->,35,Comment
+<,31,Left Angle Bracket
+assign,45,assign Keyword
+identifier,55,identifier Keyword
+=,19,Equal Sign
+{,37,Left Curly Brace
+sum,0,Identifier
+},38,Right Curly Brace
+expr,56,expr Keyword
+=,19,Equal Sign
+{,37,Left Curly Brace
+a,0,Identifier
++,1,Plus Sign
+b,0,Identifier
+},38,Right Curly Brace
+/,7,Forward Slash Symbol
+>,32,Right Angle Bracket
+<!-- Output the sum -->,35,Comment
+<,31,Left Angle Bracket
+out,0,Identifier
+expr,56,expr Keyword
+=,19,Equal Sign
+{,37,Left Curly Brace
+"Sum is: ",41,String Literal
++,1,Plus Sign
+sum,0,Identifier
+},38,Right Curly Brace
+/,7,Forward Slash Symbol
+>,32,Right Angle Bracket
+<,31,Left Angle Bracket
+out,0,Identifier
 /,7,Forward Slash Symbol
 >,32,Right Angle Bracket
