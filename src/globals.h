@@ -8,3 +8,9 @@
  * 
  */
 FILE *input_file;
+
+/**
+ * @brief The symbol table file output
+ * 
+ */
+FILE *sym_file;

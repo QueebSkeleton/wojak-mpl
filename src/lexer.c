@@ -100,6 +100,7 @@ void retract_char(uint16_t);
 void refresh_buffer(uint8_t);
 
 extern FILE *input_file;
+extern FILE *sym_file;
 
 /**
  * @brief Placeholder for the current lexeme.
@@ -167,17 +168,32 @@ uint16_t forward_lexeme_ptr;
  * @return int 
  */
 int main(int argc, char *argv[]) {
-
+    // Check if arguments are properly given
     if(argc < 2) {
         printf("Error: no given files.\n");
         printf("Usage is: wojak filename.wojak\n");
         exit(EXIT_FAILURE);
     }
 
-    // Open file in read mode
+    // Open input file in read mode
     if((input_file = fopen(argv[1], "r")) == NULL) {
         printf("Error: cannot open file with name %s. Please check if this file exists"
             " or if the program cannot access it.\n", argv[1]);
+        exit(EXIT_FAILURE);
+    }
+
+    // Extract the file name only, use it for output file naming convention
+    char filename[256] = { '\0' };
+    for(int i = 0; i < strlen(argv[1]); i++) {
+        if(argv[1][i] == '.')
+            break;
+        filename[i] = argv[1][i];
+    }
+
+    // Open symbol table output file
+    if((sym_file = fopen(strcat(filename, ".symwojak"), "w")) == NULL) {
+        printf("Error: cannot create symbol table output file %s. Please check"
+            " if the program cannot access it.\n", argv[1]);
         exit(EXIT_FAILURE);
     }
 
@@ -188,10 +204,12 @@ int main(int argc, char *argv[]) {
     lex();
     while(lex_token != EOF) {
         printf("Lexeme is: %s, Token is: %s\n", lex_text, lex_token_desc);
+        fprintf(sym_file, "%s,%d,%s\n", lex_text, lex_token, lex_token_desc);
         lex();
     }
 
-    // Close the file
+    // Close the files
+    fclose(sym_file);
     fclose(input_file);
 
 }
@@ -267,12 +285,16 @@ void lex() {
                 else TRANSITION('s', 80);
                 else TRANSITION('w', 90);
                 else TRANSITION('t', 95);
+                else TRANSITION('f', 190);
+                else TRANSITION('b', 195);
                 // Start of identifier
                 else TRANSITION_NONSINGLE(isalpha(next_char) || next_char == '_', 1);
                 // Start of integer or float literal
                 else TRANSITION_NONSINGLE(isdigit(next_char), 177);
                 // End of File
-                else TRANSITION(EOF, 181);
+                else TRANSITION(EOF, 199);
+                // Invalid token
+                else printf("Unrecognized token %c\n.", next_char);
                 break;
             case 1: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION_NONSINGLE(
@@ -412,7 +434,8 @@ void lex() {
                         "continue Keyword", CONTINUE_KW);
             case 80: WORD_STATE(
                         TRANSITION('w', 81);
-                        else TRANSITION('i', 112));
+                        else TRANSITION('i', 112);
+                        else TRANSITION('t', 185));
             case 81: WORD_STATE(TRANSITION('i', 82));
             case 82: WORD_STATE(TRANSITION('t', 83));
             case 83: WORD_STATE(TRANSITION('c', 84));
@@ -493,7 +516,9 @@ void lex() {
                         "then Noise Word", THEN_NW);
             case 145: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
                         "to Noise Word", TO_NW);
-            case 146: WORD_STATE(TRANSITION('i', 147));
+            case 146: WORD_STATE(
+                        TRANSITION('i', 147);
+                        else TRANSITION('t', 184));
             case 147: WORD_STATE(TRANSITION('t', 148));
             case 148: WORD_STATE(TRANSITION('i', 149));
             case 149: WORD_STATE(TRANSITION('a', 150));
@@ -515,8 +540,20 @@ void lex() {
                         "proceed Noise Word", PROCEED_NW);
             case 163: TRANSITION('-', 164);
             case 164: TRANSITION('-', 165);
-            case 165: ACCEPT("Comment Begin", COMMENT_BEGIN);
-            case 166: ACCEPT("Comment End", COMMENT_END);
+            case 165: {
+                get_next_char();
+                TRANSITION('-', 166);
+                else TRANSITION(EOF, 183);
+                else TRANSITION_NONSINGLE(next_char != '-', 165);
+                break;
+            }
+            case 166: {
+                get_next_char();
+                TRANSITION('-', 181);
+                else TRANSITION(EOF, 183);
+                else TRANSITION_NONSINGLE(next_char != '-', 165);
+                break;
+            }
             case 167: ACCEPT("Left Parenthesis", LPAREN);
             case 168: ACCEPT("Right Parenthesis", RPAREN);
             case 169: get_next_char();
@@ -544,7 +581,39 @@ void lex() {
                         TRANSITION_NONSINGLE(isdigit(next_char), 145),
                         RETRACT_THEN_ACCEPT("Float Literal", FLOAT_LITERAL));
             case 180: ACCEPT("String Literal", STR_LITERAL);
-            case 181: ACCEPT("End of File", EOF);
+            case 181: {
+                get_next_char();
+                TRANSITION('>', 182);
+                else TRANSITION(EOF, 183);
+                else TRANSITION_NONSINGLE(next_char != '>', 165);
+                break;
+            }
+            case 182: ACCEPT("Comment", COMMENT);
+            case 183: {
+                // handle incompletes better
+                printf("Incomplete comment encountered.\n");
+                ACCEPT("End of File", EOF);
+            }
+            case 184: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "int Keyword (Attrib Value)", INT_KW);
+            case 185: WORD_STATE(TRANSITION('r', 186));
+            case 186: WORD_STATE(TRANSITION('i', 187));
+            case 187: WORD_STATE(TRANSITION('n', 188));
+            case 188: WORD_STATE(TRANSITION('g', 189));
+            case 189: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "string Keyword (Attrib Value)", STRING_KW);
+            case 190: WORD_STATE(TRANSITION('l', 191));
+            case 191: WORD_STATE(TRANSITION('o', 192));
+            case 192: WORD_STATE(TRANSITION('a', 193));
+            case 193: WORD_STATE(TRANSITION('t', 194));
+            case 194: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "float Keyword (Attrib Value)", FLOAT_KW);
+            case 195: WORD_STATE(TRANSITION('o', 196));
+            case 196: WORD_STATE(TRANSITION('o', 197));
+            case 197: WORD_STATE(TRANSITION('l', 198));
+            case 198: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "bool Keyword (Attrib Value)", BOOL_KW);
+            case 199: ACCEPT("End of File", EOF);
         }
     }
 }

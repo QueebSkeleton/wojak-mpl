@@ -47,6 +47,7 @@ enum tokens {
     RBRACKET,
     DOT,
     COMMENT_BEGIN,
+    COMMENT,
     COMMENT_END,
     LCBRACE,
     RCBRACE,
@@ -75,6 +76,11 @@ enum tokens {
     SIZE_KW,
     EVAL_KW,
     CONST_KW,
+
+    INT_KW,
+    FLOAT_KW,
+    STRING_KW,
+    BOOL_KW,
 
     // Reserved Words
     AND_RW,
