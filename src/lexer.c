@@ -579,7 +579,8 @@ void lex() {
                         TRANSITION_NONSINGLE(isdigit(next_char), 179),
                         { retract_char(1); lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = '0'; current_state = 177; });
             case 179: FINAL_STATE_WITH_TRANSITION(
-                        TRANSITION_NONSINGLE(isdigit(next_char), 179),
+                        TRANSITION_NONSINGLE(isdigit(next_char), 179);
+                        else TRANSITION('.', 207),
                         RETRACT_THEN_ACCEPT("Float Literal", FLOAT_LITERAL));
             case 180: ACCEPT("String Literal", STR_LITERAL);
             case 181: {
@@ -626,6 +627,11 @@ void lex() {
             case 205: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
                         "false Literal", FALSE_KW);
             case 206: ACCEPT("End of File", EOF);
+
+            // DEAD STATE for Invalid Float
+            case 207: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION_NONSINGLE(isdigit(next_char), 207),
+                        RETRACT_THEN_ACCEPT("Invalid. Too Many Decimal Points", INVALID_LITERAL));
         }
     }
 }
