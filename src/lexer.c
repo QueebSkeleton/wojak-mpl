@@ -175,6 +175,9 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    // exit if not .wojak file given
+    // argv[1]
+
     // Open input file in read mode
     if((input_file = fopen(argv[1], "r")) == NULL) {
         printf("Error: cannot open file with name %s. Please check if this file exists"
@@ -573,13 +576,13 @@ void lex() {
             case 176: ACCEPT("Right Curly Brace", RCBRACE);
             case 177: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION_NONSINGLE(isdigit(next_char), 177);
-                        else TRANSITION('.', 178),
+                        else TRANSITION('.', 178), 
                         RETRACT_THEN_ACCEPT("Integer Literal", INT_LITERAL));
             case 178: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION_NONSINGLE(isdigit(next_char), 179),
                         { retract_char(1); lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = '0'; current_state = 177; });
             case 179: FINAL_STATE_WITH_TRANSITION(
-                        TRANSITION_NONSINGLE(isdigit(next_char), 179),
+                        TRANSITION_NONSINGLE(isdigit(next_char), 179), // transition to dead state if another . encountered
                         RETRACT_THEN_ACCEPT("Float Literal", FLOAT_LITERAL));
             case 180: ACCEPT("String Literal", STR_LITERAL);
             case 181: {
