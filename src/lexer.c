@@ -99,6 +99,11 @@ void get_next_char_nonblank();
 void retract_char(uint16_t);
 void refresh_buffer(uint8_t);
 
+const char *getExt(const char*);
+bool is_valid_file_name(const char*);
+char** separate_name_extension(const char*);
+int compare(char[], char[]);
+
 extern FILE *input_file;
 extern FILE *sym_file;
 
@@ -175,6 +180,20 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    // Check if filename is proper
+    if(!is_valid_file_name(argv[1])) {
+        printf("Error: invalid file with name %s. It must have a"
+            " format of name.wojak\n", argv[1]);
+        exit(EXIT_FAILURE);
+    }
+
+    // Extract file name and extension
+    char **separated_name_extension = separate_name_extension(argv[1]);
+    if(compare(separated_name_extension[1], "wojak")) {
+        printf("Error: file extension must be .wojak\n");
+        exit(EXIT_FAILURE);
+    }
+
     // Open input file in read mode
     if((input_file = fopen(argv[1], "r")) == NULL) {
         printf("Error: cannot open file with name %s. Please check if this file exists"
@@ -182,16 +201,10 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // Extract the file name only, use it for output file naming convention
-    char filename[256] = { '\0' };
-    for(int i = 0; i < strlen(argv[1]); i++) {
-        if(argv[1][i] == '.')
-            break;
-        filename[i] = argv[1][i];
-    }
-
     // Open symbol table output file
-    if((sym_file = fopen(strcat(filename, ".symwojak"), "w")) == NULL) {
+    if((sym_file = fopen(strcat(separated_name_extension[0],
+                                ".symwojak"),
+                         "w")) == NULL) {
         printf("Error: cannot create symbol table output file %s. Please check"
             " if the program cannot access it.\n", argv[1]);
         exit(EXIT_FAILURE);
@@ -729,4 +742,70 @@ void refresh_buffer(uint8_t half) {
     // NOTE: this is intentionally done because fread() does not place
     // EOF on the string, but instead uses \0
     buffer[BUFFER_LENGTH * (half) + chars_read] = EOF;
+}
+
+/**
+ * @brief Gets the file extension of the given file
+ *
+ * @param argv
+ * @return e
+ */
+const char *getExt(const char *fspec) {
+    char *e = strrchr(fspec, '.');
+    if (e == NULL) e = "";
+    return e;
+}
+
+bool is_valid_file_name(const char *filename) {
+    int filename_len = strlen(filename);
+
+    if(filename_len < 3) return false;
+
+    for(int i = 0; i < filename_len; i++)
+        if(filename[i] == '.' && (i != 0 && i != filename_len - 1))
+            return true;
+
+    return false;
+}
+
+/**
+ * @brief Separate the file name and extension from a given string.
+ * 
+ * @param filename the filename to break down.
+ * @return const char** the name (index 0) and extension (index 1)
+ */
+char** separate_name_extension(const char *filename) {
+    char *dot_loc = strrchr(filename, '.'),
+         **filename_broken = (char **) malloc(sizeof(char *) * 2);
+    uint8_t name_len = dot_loc - filename + 1;
+    filename_broken[0] = strcpy((char *) malloc(sizeof(char) * name_len),
+                                filename);
+    filename_broken[0][name_len - 1] = '\0';
+    filename_broken[1] = dot_loc + 1;
+    return filename_broken;
+}
+
+/**
+ * @brief Compares two character strings.
+ *
+ * @param a the first string
+ * @param b the second string 
+ * @return the ascii difference
+ */
+int compare(char a[], char b[]) {
+    int a_len = strlen(a),
+        b_len = strlen(b),
+        i;
+
+    for(i = 0; i < a_len && i < b_len; i++)
+        if(a[i] != b[i])
+            return a[i] - b[i];
+    
+    // overlaps (when one of the strings is bigger)
+    if(i < a_len)
+        return a[i];
+    else if(i < b_len)
+        return -b[i];
+
+    return 0;
 }
