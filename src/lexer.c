@@ -9,6 +9,11 @@
 #include "tokens.h"
 #endif
 
+#ifndef STDIO_H
+#define STDIO_H
+#include <stdio.h>
+#endif
+
 #ifndef STDLIB_H
 #define STDLIB_H
 #include <stdlib.h>
@@ -92,15 +97,25 @@
         TRANSITION_NONSINGLE(isalnum(next_char) || next_char == '_', 1), \
         RETRACT_THEN_ACCEPT(token_str, rep))
 
+// MACRO for an error
+#define ERROR(message) \
+    do { \
+        strcpy(lex_text, lexeme); \
+        error(message); \
+        return; \
+    } while(0)
+
 void init();
 void lex();
 void get_next_char();
 void get_next_char_nonblank();
 void retract_char(uint16_t);
 void refresh_buffer(uint8_t);
+void error(char *error_message);
 
 extern FILE *input_file;
 extern FILE *sym_file;
+extern uint8_t lex_error_count;
 
 /**
  * @brief Placeholder for the current lexeme.
@@ -203,8 +218,8 @@ int main(int argc, char *argv[]) {
     // Print all tokens in the file
     lex();
     while(lex_token != EOF) {
-        printf("Lexeme is: %s, Token is: %s\n", lex_text, lex_token_desc);
-        fprintf(sym_file, "%s,%d,%s\n", lex_text, lex_token, lex_token_desc);
+        if(lex_token != INVALID)
+            fprintf(sym_file, "%s,%d,%s\n", lex_text, lex_token, lex_token_desc);
         lex();
     }
 
@@ -229,6 +244,9 @@ void init() {
     // Initialize reset flags
     should_refresh_buffer[0] = 1;
     should_refresh_buffer[1] = 1;
+
+    // Error count set to 0
+    lex_error_count = 0;
 }
 
 /**
@@ -292,7 +310,7 @@ void lex() {
                 // Start of integer or float literal
                 else TRANSITION_NONSINGLE(isdigit(next_char), 177);
                 // End of File
-                else TRANSITION(EOF, 206);
+                else TRANSITION(EOF, 207);
                 // Invalid token
                 else printf("Unrecognized token %c\n.", next_char);
                 break;
@@ -580,7 +598,7 @@ void lex() {
                         { retract_char(1); lexeme[forward_lexeme_ptr - begin_lexeme_ptr] = '0'; current_state = 177; });
             case 179: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION_NONSINGLE(isdigit(next_char), 179);
-                        else TRANSITION('.', 207),
+                        else TRANSITION('.', 206),
                         RETRACT_THEN_ACCEPT("Float Literal", FLOAT_LITERAL));
             case 180: ACCEPT("String Literal", STR_LITERAL);
             case 181: {
@@ -591,11 +609,7 @@ void lex() {
                 break;
             }
             case 182: ACCEPT("Comment", COMMENT);
-            case 183: {
-                // handle incompletes better
-                printf("Incomplete comment encountered.\n");
-                ACCEPT("End of File", EOF);
-            }
+            case 183: ERROR("Incomplete comment encountered.");
             case 184: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
                         "int Keyword (Attrib Value)", INT_KW);
             case 185: WORD_STATE(TRANSITION('r', 186));
@@ -626,12 +640,10 @@ void lex() {
             case 204: WORD_STATE(TRANSITION('e', 205));
             case 205: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
                         "false Literal", FALSE_KW);
-            case 206: ACCEPT("End of File", EOF);
-
-            // DEAD STATE for Invalid Float
-            case 207: FINAL_STATE_WITH_TRANSITION(
-                        TRANSITION_NONSINGLE(isdigit(next_char), 207),
-                        RETRACT_THEN_ACCEPT("Invalid. Too Many Decimal Points", INVALID_LITERAL));
+            case 206: FINAL_STATE_WITH_TRANSITION(
+                        TRANSITION_NONSINGLE(isdigit(next_char) || next_char == '.', 206),
+                        ERROR("Too many decimal points.\n"));
+            case 207: ACCEPT("End of File", EOF);
         }
     }
 }
@@ -735,4 +747,19 @@ void refresh_buffer(uint8_t half) {
     // NOTE: this is intentionally done because fread() does not place
     // EOF on the string, but instead uses \0
     buffer[BUFFER_LENGTH * (half) + chars_read] = EOF;
+}
+
+/**
+ * @brief Prints an error message, and sets the token to invalid.
+ *
+ * @param error_message the message to print
+ */
+void error(char *error_message) {
+    printf("Invalid token: %s\n", lex_text);
+    puts(error_message);
+
+    lex_token = INVALID;
+    lex_error_count++;
+
+    retract_char(1);
 }

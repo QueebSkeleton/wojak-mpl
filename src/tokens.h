@@ -56,7 +56,6 @@ enum tokens {
     INT_LITERAL,
     FLOAT_LITERAL,
     STR_LITERAL,
-    INVALID_LITERAL,
 
     // Keywords
     PRIM_DECLARE_KW,
@@ -100,5 +99,7 @@ enum tokens {
     TO_NW,
     INITIALIZE_NW,
     WITH_NW,
-    PROCEED_NW
+    PROCEED_NW,
+
+    INVALID,
 };
