@@ -99,5 +99,7 @@ enum tokens {
     TO_NW,
     INITIALIZE_NW,
     WITH_NW,
-    PROCEED_NW
+    PROCEED_NW,
+
+    INVALID,
 };
