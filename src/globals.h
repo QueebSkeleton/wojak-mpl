@@ -9,6 +9,12 @@
 #endif
 
 /**
+ * @brief File name
+ * 
+ */
+char filename[255];
+
+/**
  * @brief The input file, assumingly in .wojak language rules.
  * 
  */

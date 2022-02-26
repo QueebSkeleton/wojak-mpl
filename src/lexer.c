@@ -35,7 +35,7 @@
 #endif
 
 #ifndef INTTYPES_H
-#define INTTYPES_h
+#define INTTYPES_H
 #include <inttypes.h>
 #endif
 
@@ -105,7 +105,7 @@
         return; \
     } while(0)
 
-void init();
+void lex_init();
 void lex();
 void get_next_char();
 void get_next_char_nonblank();
@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Initialize the lexer
-    init();
+    lex_init();
 
     // Print all tokens in the file
     lex();
@@ -248,7 +248,7 @@ int main(int argc, char *argv[]) {
  * @brief Initializes the lexical analyzer
  * 
  */
-void init() {
+void lex_init() {
     // Initialize pointer at end of second half, which will reset later for convenience
     forward_lexeme_ptr = BUFFER_LENGTH * 2 - 2;
 
