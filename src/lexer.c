@@ -217,10 +217,10 @@ void start_lex() {
     lex();
     while(lex_token != EOF) {
         if(lex_token != INVALID)
-            fprintf(sym_file, "%s,%d,%s\n", lex_text, lex_token, lex_token_desc);
+            fprintf(sym_file, "%s;%d;%s\n", lex_text, lex_token, lex_token_desc);
         lex();
     }
-    fprintf(sym_file, "%s,%d,%s\n", "EMPTY", EOF, "End of input");
+    fprintf(sym_file, "%s;%d;%s\n", "EMPTY", EOF, "End of input");
 
     // Clean up memory used by lexer
 

@@ -34,13 +34,23 @@ bool prog();
 bool stmts(tree_node*);
 bool stmt(tree_node*);
 bool prim_decl_stmt(tree_node*);
+bool list_decl_stmt(tree_node*);
+bool list_elems(tree_node*);
+bool list_elem(tree_node*);
+bool assign_stmt(tree_node*);
 bool in_stmt(tree_node*);
 bool out_stmt(tree_node*);
+bool decision_stmt(tree_node*);
+bool if_stmt(tree_node*);
+bool elif_stmts(tree_node*);
+bool elif_stmt(tree_node*);
+bool else_stmt(tree_node*);
 bool switch_stmt(tree_node*);
 bool cases(tree_node*);
 bool case_(tree_node*);
 bool regular_case(tree_node*);
 bool default_case(tree_node*);
+bool while_stmt(tree_node*);
 bool break_stmt(tree_node*);
 bool continue_stmt(tree_node*);
 
@@ -57,6 +67,10 @@ tree_node *trasnform_into_binary_node(int8_t);
 bool is_unary(node_type);
 bool is_left_associative(node_type);
 
+bool identifier_list(tree_node*);
+
+bool optional_expr_list(tree_node*);
+bool expr_list(tree_node*);
 
 bool parse_token(int8_t);
 bool expect_token(int8_t, char*);
@@ -85,7 +99,8 @@ void start_syn() {
 
     // Parse all tokens
     parse_tokens_into_list();
-    curr_token = all_tokens -> head;
+    // Start at sentinel intentionally placed
+    curr_token = all_tokens -> head -> next;
 
     // Start parsing
     prog();
@@ -101,9 +116,10 @@ void parse_tokens_into_list() {
     size_t len = 0;
     char *line = NULL;
     ssize_t read;
+    add_token_to_list(all_tokens, "SENTINEL", -2);
     while((read = getline(&line, &len, sym_file)) != -1) {
-        char *lexeme = strtok(line, ",");
-        int8_t token_rep = atoi(strtok(NULL, ","));
+        char *lexeme = strtok(line, ";");
+        int8_t token_rep = atoi(strtok(NULL, ";"));
         add_token_to_list(all_tokens, lexeme, token_rep);
     }
 }
@@ -115,14 +131,18 @@ bool prog() {
 
 bool stmts(tree_node* parent) {
     tree_node *stmts_node = create_node(STMTS, NULL);
+    token_list_item *before = curr_token;
 
     bool success = stmt(stmts_node);
 
     if(success) {
         add_ready_to_parent(parent, stmts_node);
         stmts(stmts_node);
-    } else
+    } else {
         destroy_node(stmts_node);
+        curr_token = before -> prev;
+        get_next_token();
+    }
 
     return success;
 }
@@ -134,16 +154,27 @@ bool stmt(tree_node* parent) {
     get_prev_token();
 
     tree_node *stmt_node = create_node(STMT, NULL);
+    token_list_item *before = curr_token;
+
     bool success =
         prim_decl_stmt(stmt_node) ||
+        list_decl_stmt(stmt_node) ||
+        assign_stmt(stmt_node) ||
         in_stmt(stmt_node) ||
         out_stmt(stmt_node) ||
+        decision_stmt(stmt_node) ||
         switch_stmt(stmt_node) ||
+        while_stmt(stmt_node) ||
         break_stmt(stmt_node) ||
         continue_stmt(stmt_node);
 
-    success ? add_ready_to_parent(parent, stmt_node) :
-              destroy_node(stmt_node);
+    if(success) {
+        add_ready_to_parent(parent, stmt_node);
+    } else {
+        destroy_node(stmt_node);
+        curr_token = before -> prev;
+        get_next_token();
+    }
 
     return success;
 }
@@ -154,6 +185,52 @@ bool prim_decl_stmt(tree_node* parent) {
 
     if(parse_token(LANGLE) &&
        parse_token(PRIM_DECLARE_KW)) {
+
+        int8_t type_declared = 0;
+        char type_declared_str[20];
+
+        bool success =
+            expect_token(TYPE_KW, "type keyword") &&
+            expect_token(EQ_SIGN, "=") &&
+            expect_token(LCBRACE, "{") &&
+            parse_type(&type_declared, type_declared_str) &&
+            expect_token(RCBRACE, "}") &&
+            expect_token(IDENTIFIER_KW, "identifier keyword") &&
+            expect_token(EQ_SIGN, "=") &&
+            expect_token(LCBRACE, "{") &&
+            identifier_list(prim_decl_node) &&
+            expect_token(RCBRACE, "}") &&
+            optional_expr_list(prim_decl_node) &&
+            expect_token(FW_SLASH, "/") &&
+            expect_token(RANGLE, ">");
+
+        if(success) {
+            add_node_to_parent(prim_decl_node, TYPE, type_declared_str);
+            add_ready_to_parent(parent, prim_decl_node);
+            
+            // printf("Primitive Declaration: [Type: %s, Identifier: %s]\n",
+            //        type_declared_str,
+            //        identifier_str);
+            return true;
+        } else {
+            printf("incorrect primitive declaration statement.\n"
+                   "Must be <prim_declare type={type} identifier={identifier}/>\n");
+        }
+    } else {
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    destroy_node(prim_decl_node);
+    return false;
+}
+
+bool list_decl_stmt(tree_node *parent) {
+    tree_node *list_decl_node = create_node(LIST_DECL_STMT, NULL);
+    token_list_item *before = curr_token;
+
+    if(parse_token(LANGLE) &&
+       parse_token(LIST_DECLARE_KW)) {
 
         int8_t type_declared = 0;
         char type_declared_str[20];
@@ -170,28 +247,118 @@ bool prim_decl_stmt(tree_node* parent) {
             expect_token(LCBRACE, "{") &&
             parse_identifier(identifier_str) &&
             expect_token(RCBRACE, "}") &&
+            expect_token(RANGLE, ">") &&
+            list_elems(list_decl_node) &&
+            expect_token(LANGLE, "<") &&
             expect_token(FW_SLASH, "/") &&
+            expect_token(LIST_DECLARE_KW, "list_declare keyword") &&
             expect_token(RANGLE, ">");
 
         if(success) {
-            add_node_to_parent(prim_decl_node, TYPE, type_declared_str);
-            add_node_to_parent(prim_decl_node, IDENTIFIER_NODE, identifier_str);
-            add_ready_to_parent(parent, prim_decl_node);
-            
-            printf("Primitive Declaration: [Type: %s, Identifier: %s]\n",
-                   type_declared_str,
-                   identifier_str);
+            add_node_to_parent(list_decl_node, TYPE, type_declared_str);
+            add_node_to_parent(list_decl_node, IDENTIFIER_NODE, identifier_str);
+            add_ready_to_parent(parent, list_decl_node);
             return true;
         } else {
-            printf("incorrect primitive declaration statement.\n"
-                   "Must be <prim_declare type={type} identifier={identifier}/>\n");
+            printf("incorrect list declaration statement.\n"
+                   "Must be <list type={type} identifier={identifier}> elems </list_declare>\n");
         }
     } else {
         curr_token = before -> prev;
         get_next_token();
     }
 
-    destroy_node(prim_decl_node);
+    destroy_node(list_decl_node);
+    return false;
+}
+
+bool list_elems(tree_node *parent) {
+    tree_node *list_elems_node = create_node(LIST_ELEMS_NODE, NULL);
+    token_list_item *before = curr_token;
+
+    bool success = list_elem(list_elems_node);
+    if(success) {
+        add_ready_to_parent(parent, list_elems_node);
+        list_elems(list_elems_node);
+    } else {
+        destroy_node(list_elems_node);
+        curr_token = before -> prev;
+        get_next_token();
+    }
+    
+    return success;
+}
+
+bool list_elem(tree_node *parent) {
+    tree_node *list_elem_node = create_node(LIST_ELEM_NODE, NULL);
+    token_list_item *before = curr_token;
+
+    if(parse_token(LANGLE) &&
+       parse_token(ELEM_KW)) {
+
+        bool success =
+            expect_token(EXPR_KW, "expr keyword") &&
+            expect_token(EQ_SIGN, "=") &&
+            expect_token(LCBRACE, "{") &&
+            parse_expr(list_elem_node) &&
+            expect_token(RCBRACE, "}") &&
+            expect_token(FW_SLASH, "/") &&
+            expect_token(RANGLE, ">");
+
+        if(success) {
+            add_ready_to_parent(parent, list_elem_node);
+            return true;
+        } else {
+            printf("incorrect elem statement.\n"
+                   "Must be <elem expr={expr}/>\n");
+        }
+    } else {
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    destroy_node(list_elem_node);
+    return false;
+}
+
+bool assign_stmt(tree_node *parent) {
+    tree_node *assign_stmt_node = create_node(ASSIGN_STMT, NULL);
+    token_list_item *before = curr_token;
+
+    if(parse_token(LANGLE) &&
+       parse_token(ASSIGN_KW)) {
+
+        char identifier_str[80];
+
+        bool success =
+            expect_token(IDENTIFIER_KW, "identifier keyword") &&
+            expect_token(EQ_SIGN, "=") &&
+            expect_token(LCBRACE, "{") &&
+            parse_identifier(identifier_str) &&
+            expect_token(RCBRACE, "}") &&
+            expect_token(EXPR_KW, "expr keyword") &&
+            expect_token(EQ_SIGN, "=") &&
+            expect_token(LCBRACE, "{") &&
+            parse_expr(assign_stmt_node) &&
+            expect_token(RCBRACE, "}") &&
+            expect_token(FW_SLASH, "/") &&
+            expect_token(RANGLE, ">");
+
+        if(success) {
+            add_node_to_parent(assign_stmt_node, IDENTIFIER_NODE, identifier_str);
+            add_ready_to_parent(parent, assign_stmt_node);
+            // printf("Assignment Statement\n");
+            return true;
+        } else {
+            printf("incorrect assign statement.\n"
+                   "Must be <assign identifier={identifier} expr={expr}/>\n");
+        }
+    } else {
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    destroy_node(assign_stmt_node);
     return false;
 }
 
@@ -217,8 +384,8 @@ bool in_stmt(tree_node *parent) {
             add_node_to_parent(in_node, IDENTIFIER_NODE, identifier_str);
             add_ready_to_parent(parent, in_node);
             
-            printf("Input Statement: [Identifier: %s]\n",
-                   identifier_str);
+            // printf("Input Statement: [Identifier: %s]\n",
+            //        identifier_str);
             return true;
         } else {
             printf("incorrect input statement.\n"
@@ -254,7 +421,7 @@ bool out_stmt(tree_node *parent) {
         if(success) {
             add_ready_to_parent(parent, out_node);
             
-            printf("Output Statement\n");
+            // printf("Output Statement\n");
             return true;
         } else {
             printf("incorrect output statement.\n"
@@ -266,6 +433,151 @@ bool out_stmt(tree_node *parent) {
     }
 
     destroy_node(out_node);
+    return false;
+}
+
+bool decision_stmt(tree_node *parent) {
+    tree_node *decision_node = create_node(DECISION_STMT, NULL);
+    token_list_item *before = curr_token;
+
+    bool success = if_stmt(decision_node);
+    if(success) {
+        elif_stmts(decision_node);
+        else_stmt(decision_node);
+    }
+
+    if(success) {
+        add_ready_to_parent(parent, decision_node);
+    } else {
+        destroy_node(decision_node);
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    return success;
+}
+
+bool if_stmt(tree_node *parent) {
+    tree_node *if_node = create_node(IF_STMT, NULL);
+    token_list_item *before = curr_token;
+
+    if(parse_token(LANGLE) &&
+       parse_token(IF_KW)) {
+        
+        bool success =
+            expect_token(EXPR_KW, "expr keyword") &&
+            expect_token(EQ_SIGN, "=") &&
+            expect_token(LCBRACE, "{") &&
+            parse_expr(if_node) &&
+            expect_token(RCBRACE, "}") &&
+            expect_token(RANGLE, ">") &&
+            stmts(if_node) &&
+            expect_token(LANGLE, "<") &&
+            expect_token(FW_SLASH, "/") &&
+            expect_token(IF_KW, "if") &&
+            expect_token(RANGLE, ">");
+
+        if(success) {
+            add_ready_to_parent(parent, if_node);
+            // printf("Output Statement\n");
+            return true;
+        } else {
+            printf("incorrect if statement.\n"
+                   "Must be <if expr={expr}>stmts</if>\n");
+        }
+    } else {
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    destroy_node(if_node);
+    return false;
+}
+
+bool elif_stmts(tree_node *parent) {
+    tree_node *elif_stmts_node = create_node(ELIF_STMTS, NULL);
+    token_list_item *before = curr_token;
+
+    bool success = elif_stmt(elif_stmts_node);
+
+    if(success) {
+        add_ready_to_parent(parent, elif_stmts_node);
+        elif_stmts(elif_stmts_node);
+    } else {
+        destroy_node(elif_stmts_node);
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    return true;
+}
+
+bool elif_stmt(tree_node *parent) {
+    tree_node *elif_node = create_node(ELIF_STMT, NULL);
+    token_list_item *before = curr_token;
+
+    if(parse_token(LANGLE) &&
+       parse_token(ELIF_KW)) {
+        
+        bool success =
+            expect_token(EXPR_KW, "expr keyword") &&
+            expect_token(EQ_SIGN, "=") &&
+            expect_token(LCBRACE, "{") &&
+            parse_expr(elif_node) &&
+            expect_token(RCBRACE, "}") &&
+            expect_token(RANGLE, ">") &&
+            stmts(elif_node) &&
+            expect_token(LANGLE, "<") &&
+            expect_token(FW_SLASH, "/") &&
+            expect_token(ELIF_KW, "elif keyword") &&
+            expect_token(RANGLE, ">");
+
+        if(success) {
+            add_ready_to_parent(parent, elif_node);
+            // printf("Output Statement\n");
+            return true;
+        } else {
+            printf("incorrect elif statement.\n"
+                   "Must be <elif expr={expr}>stmts</elif>\n");
+        }
+    } else {
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    destroy_node(elif_node);
+    return false;
+}
+
+bool else_stmt(tree_node *parent) {
+    tree_node *else_node = create_node(ELSE_STMT, NULL);
+    token_list_item *before = curr_token;
+
+    if(parse_token(LANGLE) &&
+       parse_token(ELSE_KW)) {
+        
+        bool success =
+            expect_token(RANGLE, ">") &&
+            stmts(else_node) &&
+            expect_token(LANGLE, "<") &&
+            expect_token(FW_SLASH, "/") &&
+            expect_token(ELSE_KW, "else keyword") &&
+            expect_token(RANGLE, ">");
+
+        if(success) {
+            add_ready_to_parent(parent, else_node);
+            // printf("Output Statement\n");
+            return true;
+        } else {
+            printf("incorrect else statement.\n"
+                   "Must be <else>stmts</else>\n");
+        }
+    } else {
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    destroy_node(else_node);
     return false;
 }
 
@@ -313,24 +625,35 @@ bool switch_stmt(tree_node *parent) {
 
 bool cases(tree_node *parent) {
     tree_node *cases_node = create_node(CASES, NULL);
+    token_list_item *before = curr_token;
 
     bool success = case_(cases_node);
     if(success) {
         add_ready_to_parent(parent, cases_node);
         cases(cases_node);
-    } else
+    } else {
         destroy_node(cases_node);
+        curr_token = before -> prev;
+        get_next_token();
+    }
     
     return success;
 }
 
 bool case_(tree_node *parent) {
     tree_node *case_node = create_node(CASE_, NULL);
+    token_list_item *before = curr_token;
 
     bool success = regular_case(case_node) ||
                    default_case(case_node);
-    success ? add_ready_to_parent(parent, case_node) :
-              destroy_node(case_node);
+    
+    if(success) {
+        add_ready_to_parent(parent, case_node);
+    } else {
+        destroy_node(case_node);
+        curr_token = before -> prev;
+        get_next_token();
+    }
     
     return success;
 }
@@ -407,6 +730,43 @@ bool default_case(tree_node *parent) {
     }
 
     destroy_node(default_case_node);
+    return false;
+}
+
+bool while_stmt(tree_node *parent) {
+    tree_node *while_stmt_node = create_node(WHILE_STMT, NULL);
+    token_list_item *before = curr_token;
+
+    if(parse_token(LANGLE) &&
+       parse_token(WHILE_KW)) {
+        
+        bool success =
+            expect_token(EXPR_KW, "expr keyword") &&
+            expect_token(EQ_SIGN, "=") &&
+            expect_token(LCBRACE, "{") &&
+            parse_expr(while_stmt_node) &&
+            expect_token(RCBRACE, "}") &&
+            expect_token(RANGLE, ">") &&
+            stmts(while_stmt_node) &&
+            expect_token(LANGLE, "<") &&
+            expect_token(FW_SLASH, "/") &&
+            expect_token(WHILE_KW, "while keyword") &&
+            expect_token(RANGLE, ">");
+
+        if(success) {
+            add_ready_to_parent(parent, while_stmt_node);
+            // printf("Default Case:");
+            return true;
+        } else {
+            printf("incorrect while statement.\n"
+                   "Must be <while expr={expr}>stmts</while>\n");
+        }
+    } else {
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    destroy_node(while_stmt_node);
     return false;
 }
 
@@ -700,6 +1060,84 @@ bool parse_type(int8_t *placeholder, char *placeholder_lex) {
     return success;
 }
 
+bool identifier_list(tree_node *parent) {
+    tree_node *identifier_list_node = create_node(IDENTIFIER_LIST_NODE, NULL);
+    token_list_item *before = curr_token;
+
+    char placeholder_identifier[80];
+    bool success = parse_identifier(placeholder_identifier);
+
+    if(success) {
+        add_node_to_parent(identifier_list_node, IDENTIFIER_NODE, placeholder_identifier);
+        add_ready_to_parent(parent, identifier_list_node);
+        // if a comma was encountered, expect another identifier
+        if(parse_token(COMMA)) {
+            bool another_success = identifier_list(identifier_list_node);
+            if(!another_success) {
+                printf("Syntax error: expected another identifier"
+                       "after comma 'id , <another_id>'\n");
+                destroy_node(identifier_list_node);
+                return false;
+            }
+        }
+    } else {
+        destroy_node(identifier_list_node);
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    return success;
+}
+
+bool optional_expr_list(tree_node *parent) {
+    token_list_item *before = curr_token;
+
+    if(parse_token(EXPR_KW)) {
+        bool success =
+            expect_token(EQ_SIGN, "=") &&
+            expect_token(LCBRACE, "{") &&
+            expr_list(parent) &&
+            expect_token(RCBRACE, "}");
+        if(!success) {
+            printf("incorrect expr attribute.\n"
+                   "must be expr={<list_of_expressions>}\n");
+            return false;
+        }
+    } else {
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    return true;
+}
+
+bool expr_list(tree_node *parent) {
+    tree_node *expr_list_node = create_node(EXPR_LIST_NODE, NULL);
+    token_list_item *before = curr_token;
+
+    bool success = parse_expr(expr_list_node);
+
+    if(success) {
+        add_ready_to_parent(parent, expr_list_node);
+        // if a comma was encountered, expect another identifier
+        if(parse_token(COMMA)) {
+            bool another_success = expr_list(expr_list_node);
+            if(!another_success) {
+                printf("Syntax error: expected another expression"
+                       "after comma 'expr , <another_expr>'\n");
+                destroy_node(expr_list_node);
+                return false;
+            }
+        }
+    } else {
+        destroy_node(expr_list_node);
+        curr_token = before -> prev;
+        get_next_token();
+    }
+
+    return success;
+}
+
 bool parse_identifier(char *placeholder_lex) {
     token_list_item *before = curr_token;
     get_next_token();
@@ -744,7 +1182,9 @@ bool parse_constant(char *placeholder_lex) {
 
 bool expect_token(int8_t expected_token, char *expected_token_str) {
     bool success = parse_token(expected_token);
-    if(!success) printf("Error: expected %s but got %s\n", expected_token_str, curr_lexeme);
+    if(!success) printf("Error: expected %s but got %s\n",
+                        expected_token_str,
+                        curr_token -> next -> token -> lexeme);
     return success;
 }
 
