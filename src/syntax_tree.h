@@ -19,7 +19,46 @@ typedef enum node_type {
 
     BREAK_STMT, CONTINUE_STMT,
 
+    LOGIC_OR_NODE,
+    LOGIC_AND_NODE,
+    LOGIC_NOT_NODE,
+
+    BITWISE_OR_NODE,
+    BITWISE_XOR_NODE,
+    BITWISE_NOT_NODE,
+    BITWISE_AND_NODE,
+    BITWISE_RIGHT_NODE,
+    BITWISE_LEFT_NODE,
+
+    RELATIONAL_EQ_NODE,
+    RELATIONAL_NOT_EQ_NODE,
+    RELATIONAL_GT_NODE,
+    RELATIONAL_GT_EQ_NODE,
+    RELATIONAL_LT_NODE,
+    RELATIONAL_LT_EQ_NODE,
+
+    ADD_NODE,
+    SUB_NODE,
+    MUL_NODE,
+    DIV_NODE,
+    FLOOR_NODE,
+    MOD_NODE,
+
+    UNARY_ADD_NODE,
+    UNARY_SUB_NODE,
+
+    SENTINEL_EXPR_NODE,
+
     IDENTIFIER_NODE,
+    EXPR_NODE,
+
+    STR_LITERAL_NODE,
+    INT_LITERAL_NODE,
+    FLOAT_LITERAL_NODE,
+    TRUE_KW_NODE,
+    FALSE_KW_NODE,
+
+
     TYPE
 } node_type;
 
@@ -80,4 +119,63 @@ void destroy_node(tree_node *to_destroy) {
 
     // Then destroy itself
     free(to_destroy);
+}
+
+struct expr_stack_node {
+    struct tree_node *actual_node;
+    struct expr_stack_node *next;
+};
+typedef struct expr_stack_node expr_stack_node;
+
+struct expr_stack {
+    struct expr_stack_node *top;
+    uint32_t members;
+};
+typedef struct expr_stack expr_stack;
+
+struct expr_stack* create_expr_stack() {
+    struct expr_stack *new_stack =
+        (struct expr_stack *) malloc(sizeof(expr_stack));
+    new_stack -> top = NULL;
+    new_stack -> members = 0;
+    return new_stack;
+}
+
+void expr_stack_push(struct expr_stack *stack, struct tree_node *value) {
+    if(value == NULL) return;
+
+    // Allocate for a new node
+    struct expr_stack_node *new_node =
+        (struct expr_stack_node *) malloc(sizeof(struct expr_stack_node));
+    new_node -> actual_node = value;
+    new_node -> next = NULL;
+
+    // If empty, make this top
+    if(stack -> top == NULL)
+        stack -> top = new_node;
+    
+    // else, replace the current top
+    else {
+        new_node -> next = stack -> top;
+        stack -> top = new_node;
+    }
+
+    // increment size
+    stack -> members++;
+}
+
+struct tree_node* expr_stack_pop(struct expr_stack *stack) {
+    if(stack == NULL) return NULL;
+
+    if(stack -> top != NULL) {
+        struct expr_stack_node *current_top = stack -> top;
+        stack -> top = current_top -> next;
+        stack -> members--;
+        return current_top -> actual_node;
+    } else return NULL;
+}
+
+struct tree_node* expr_stack_peek(struct expr_stack *stack) {
+    if(stack == NULL) return NULL;
+    return stack -> top -> actual_node;
 }
