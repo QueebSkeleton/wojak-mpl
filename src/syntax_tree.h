@@ -9,11 +9,16 @@
 #endif
 
 typedef enum node_type {
-    PROG,
-    STMTS,
-    STMT,
+    PROG, STMTS, STMT,
     PRIM_DECL_STMT,
     IN_STMT,
+    OUT_STMT,
+
+    SWITCH_STMT, CASES, CASE_, REGULAR_CASE, DEFAULT_CASE,
+    EVAL, CONST,
+
+    BREAK_STMT, CONTINUE_STMT,
+
     IDENTIFIER_NODE,
     TYPE
 } node_type;
@@ -54,19 +59,25 @@ struct tree_node* add_ready_to_parent(tree_node *parent, tree_node *child) {
 }
 
 struct tree_node* add_node_to_parent(tree_node *parent, node_type type, char *value) {
-    if(parent == NULL) return NULL;
-
     struct tree_node *new_node = create_node(type, value);
-    // search parent for the last child in list
-    if(parent -> children_head == NULL)
-        parent -> children_head = new_node;
-    // traverse for the last child
-    else {
-        struct tree_node *current = parent -> children_head;
-        while(current -> next_sibling != NULL)
-            current = current -> next_sibling;
-        current -> next_sibling = new_node;
+    return add_ready_to_parent(parent, new_node);
+}
+
+void destroy_node(tree_node *to_destroy) {
+    if(to_destroy == NULL) return;
+
+    // First loop on all children
+    if(to_destroy -> children_head != NULL) {
+        struct tree_node *current = to_destroy -> children_head;
+        struct tree_node *next = NULL;
+
+        while(current != NULL) {
+            next = current -> next_sibling;
+            destroy_node(current);
+            current = next;
+        }
     }
 
-    return new_node;
+    // Then destroy itself
+    free(to_destroy);
 }

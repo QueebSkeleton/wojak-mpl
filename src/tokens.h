@@ -69,6 +69,7 @@ enum tokens {
     CONTINUE_KW,
     SWITCH_KW,
     CASE_KW,
+    DEFAULT_KW,
     WHILE_KW,
     TYPE_KW,
     IDENTIFIER_KW,
