@@ -8,6 +8,11 @@
 #include "string.h"
 #endif
 
+#ifndef INTTYPES_H
+#define INTTYPES_H
+#include <inttypes.h>
+#endif
+
 typedef enum node_type {
     PROG, STMTS, STMT,
 
@@ -71,8 +76,7 @@ typedef enum node_type {
     TRUE_KW_NODE,
     FALSE_KW_NODE,
 
-
-    TYPE
+    TYPE_NODE
 } node_type;
 
 struct tree_node {

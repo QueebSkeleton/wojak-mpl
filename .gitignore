@@ -60,3 +60,4 @@ dkms.conf
 # .wojak test files
 *.wojak
 *.symwojak
+*.wojaktree

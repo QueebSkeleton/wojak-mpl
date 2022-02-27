@@ -1,3 +1,6 @@
+// TODO: Increment error count when no list elements are specified for a list declaration
+// TODO: Implement rest of operators, including unary
+
 #ifndef GLOBALS_H
 #define GLOBALS_H
 #include "globals.h"
@@ -20,7 +23,7 @@
 
 #ifndef STDIO_H
 #define STDIO_H
-#include "stdio.h"
+#include <stdio.h>
 #endif
 
 // Prototypes
@@ -28,6 +31,11 @@ void syn_init();
 void parse_tokens_into_list();
 void get_next_token();
 void get_prev_token();
+void write_syntax_file();
+
+void flatten_syntax_tree(tree_node*);
+void print_expr(tree_node*);
+void print_expr_child(tree_node*);
 
 // Process Productions
 bool prog();
@@ -78,8 +86,16 @@ bool parse_identifier(char*);
 bool parse_constant(char*);
 bool parse_type(int8_t*, char*);
 
+/**
+ * @brief Number of errors encountered in syntax phase.
+  */
+uint8_t syn_error_count;
+
 // Globals for Syntax Analysis
+// The input symbol table file
 FILE *sym_file;
+// The output syntax tree file
+FILE *syn_tree_file;
 // Placeholder for all tokens in LinkedList
 token_list *all_tokens;
 // Placeholder for current token
@@ -101,9 +117,15 @@ void start_syn() {
     parse_tokens_into_list();
     // Start at sentinel intentionally placed
     curr_token = all_tokens -> head -> next;
+    syn_error_count = 0;
 
     // Start parsing
     prog();
+
+    // If no errors, output syntax tree
+    if(!syn_error_count) {
+        write_syntax_file();
+    }
 
     // Close files used by syntax analysis phase
     fclose(sym_file);
@@ -124,13 +146,32 @@ void parse_tokens_into_list() {
     }
 }
 
+void write_syntax_file() {
+    strcat(filename_syntaxtree, separated_name_extension[0]);
+    strcat(filename_syntaxtree, ".wojaktree");
+
+    // Attempt to open syntax tree file in read mode
+    if((syn_tree_file = fopen(filename_syntaxtree, "w")) == NULL) {
+        printf("Error: cannot create syntax tree file with name %s."
+               "Please make sure that the compiler has proper access.",
+               filename_syntaxtree);
+        exit(EXIT_FAILURE);
+    }
+
+    // Write to the syntax tree file
+    flatten_syntax_tree(root);
+
+    // Close file
+    fclose(syn_tree_file);
+}
+
 bool prog() {
-    root = create_node(PROG, NULL);
+    root = create_node(PROG, "PROG");
     return stmts(root);
 }
 
 bool stmts(tree_node* parent) {
-    tree_node *stmts_node = create_node(STMTS, NULL);
+    tree_node *stmts_node = create_node(STMTS, "STMTS");
     token_list_item *before = curr_token;
 
     bool success = stmt(stmts_node);
@@ -153,7 +194,7 @@ bool stmt(tree_node* parent) {
     if(curr_token_rep == EOF) return false;
     get_prev_token();
 
-    tree_node *stmt_node = create_node(STMT, NULL);
+    tree_node *stmt_node = create_node(STMT, "STMT");
     token_list_item *before = curr_token;
 
     bool success =
@@ -180,7 +221,7 @@ bool stmt(tree_node* parent) {
 }
 
 bool prim_decl_stmt(tree_node* parent) {
-    tree_node *prim_decl_node = create_node(PRIM_DECL_STMT, NULL);
+    tree_node *prim_decl_node = create_node(PRIM_DECL_STMT, "PRIM_DECL_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -205,7 +246,7 @@ bool prim_decl_stmt(tree_node* parent) {
             expect_token(RANGLE, ">");
 
         if(success) {
-            add_node_to_parent(prim_decl_node, TYPE, type_declared_str);
+            add_node_to_parent(prim_decl_node, TYPE_NODE, type_declared_str);
             add_ready_to_parent(parent, prim_decl_node);
             
             // printf("Primitive Declaration: [Type: %s, Identifier: %s]\n",
@@ -226,7 +267,7 @@ bool prim_decl_stmt(tree_node* parent) {
 }
 
 bool list_decl_stmt(tree_node *parent) {
-    tree_node *list_decl_node = create_node(LIST_DECL_STMT, NULL);
+    tree_node *list_decl_node = create_node(LIST_DECL_STMT, "LIST_DECL_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -255,7 +296,7 @@ bool list_decl_stmt(tree_node *parent) {
             expect_token(RANGLE, ">");
 
         if(success) {
-            add_node_to_parent(list_decl_node, TYPE, type_declared_str);
+            add_node_to_parent(list_decl_node, TYPE_NODE, type_declared_str);
             add_node_to_parent(list_decl_node, IDENTIFIER_NODE, identifier_str);
             add_ready_to_parent(parent, list_decl_node);
             return true;
@@ -273,7 +314,7 @@ bool list_decl_stmt(tree_node *parent) {
 }
 
 bool list_elems(tree_node *parent) {
-    tree_node *list_elems_node = create_node(LIST_ELEMS_NODE, NULL);
+    tree_node *list_elems_node = create_node(LIST_ELEMS_NODE, "LIST_ELEMS");
     token_list_item *before = curr_token;
 
     bool success = list_elem(list_elems_node);
@@ -290,7 +331,7 @@ bool list_elems(tree_node *parent) {
 }
 
 bool list_elem(tree_node *parent) {
-    tree_node *list_elem_node = create_node(LIST_ELEM_NODE, NULL);
+    tree_node *list_elem_node = create_node(LIST_ELEM_NODE, "LIST_ELEM");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -322,7 +363,7 @@ bool list_elem(tree_node *parent) {
 }
 
 bool assign_stmt(tree_node *parent) {
-    tree_node *assign_stmt_node = create_node(ASSIGN_STMT, NULL);
+    tree_node *assign_stmt_node = create_node(ASSIGN_STMT, "ASSIGN_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -363,7 +404,7 @@ bool assign_stmt(tree_node *parent) {
 }
 
 bool in_stmt(tree_node *parent) {
-    tree_node *in_node = create_node(IN_STMT, NULL);
+    tree_node *in_node = create_node(IN_STMT, "IN_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -401,7 +442,7 @@ bool in_stmt(tree_node *parent) {
 }
 
 bool out_stmt(tree_node *parent) {
-    tree_node *out_node = create_node(OUT_STMT, NULL);
+    tree_node *out_node = create_node(OUT_STMT, "OUT_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -437,7 +478,7 @@ bool out_stmt(tree_node *parent) {
 }
 
 bool decision_stmt(tree_node *parent) {
-    tree_node *decision_node = create_node(DECISION_STMT, NULL);
+    tree_node *decision_node = create_node(DECISION_STMT, "DECISION_STMT");
     token_list_item *before = curr_token;
 
     bool success = if_stmt(decision_node);
@@ -458,7 +499,7 @@ bool decision_stmt(tree_node *parent) {
 }
 
 bool if_stmt(tree_node *parent) {
-    tree_node *if_node = create_node(IF_STMT, NULL);
+    tree_node *if_node = create_node(IF_STMT, "IF_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -495,7 +536,7 @@ bool if_stmt(tree_node *parent) {
 }
 
 bool elif_stmts(tree_node *parent) {
-    tree_node *elif_stmts_node = create_node(ELIF_STMTS, NULL);
+    tree_node *elif_stmts_node = create_node(ELIF_STMTS, "ELIF_STMTS");
     token_list_item *before = curr_token;
 
     bool success = elif_stmt(elif_stmts_node);
@@ -513,7 +554,7 @@ bool elif_stmts(tree_node *parent) {
 }
 
 bool elif_stmt(tree_node *parent) {
-    tree_node *elif_node = create_node(ELIF_STMT, NULL);
+    tree_node *elif_node = create_node(ELIF_STMT, "ELIF_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -550,7 +591,7 @@ bool elif_stmt(tree_node *parent) {
 }
 
 bool else_stmt(tree_node *parent) {
-    tree_node *else_node = create_node(ELSE_STMT, NULL);
+    tree_node *else_node = create_node(ELSE_STMT, "ELSE_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -582,7 +623,7 @@ bool else_stmt(tree_node *parent) {
 }
 
 bool switch_stmt(tree_node *parent) {
-    tree_node *switch_node = create_node(SWITCH_STMT, NULL);
+    tree_node *switch_node = create_node(SWITCH_STMT, "SWITCH_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -624,7 +665,7 @@ bool switch_stmt(tree_node *parent) {
 }
 
 bool cases(tree_node *parent) {
-    tree_node *cases_node = create_node(CASES, NULL);
+    tree_node *cases_node = create_node(CASES, "CASES");
     token_list_item *before = curr_token;
 
     bool success = case_(cases_node);
@@ -641,7 +682,7 @@ bool cases(tree_node *parent) {
 }
 
 bool case_(tree_node *parent) {
-    tree_node *case_node = create_node(CASE_, NULL);
+    tree_node *case_node = create_node(CASE_, "CASE");
     token_list_item *before = curr_token;
 
     bool success = regular_case(case_node) ||
@@ -659,7 +700,7 @@ bool case_(tree_node *parent) {
 }
 
 bool regular_case(tree_node *parent) {
-    tree_node *regular_case_node = create_node(REGULAR_CASE, NULL);
+    tree_node *regular_case_node = create_node(REGULAR_CASE, "REGULAR_CASE");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -701,7 +742,7 @@ bool regular_case(tree_node *parent) {
 }
 
 bool default_case(tree_node *parent) {
-    tree_node *default_case_node = create_node(DEFAULT_CASE, NULL);
+    tree_node *default_case_node = create_node(DEFAULT_CASE, "DEFAULT_CASE");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -734,7 +775,7 @@ bool default_case(tree_node *parent) {
 }
 
 bool while_stmt(tree_node *parent) {
-    tree_node *while_stmt_node = create_node(WHILE_STMT, NULL);
+    tree_node *while_stmt_node = create_node(WHILE_STMT, "WHILE_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -771,7 +812,7 @@ bool while_stmt(tree_node *parent) {
 }
 
 bool break_stmt(tree_node *parent) {
-    tree_node *break_stmt_node = create_node(BREAK_STMT, NULL);
+    tree_node *break_stmt_node = create_node(BREAK_STMT, "BREAK_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -799,7 +840,7 @@ bool break_stmt(tree_node *parent) {
 }
 
 bool continue_stmt(tree_node *parent) {
-    tree_node *continue_stmt_node = create_node(CONTINUE_STMT, NULL);
+    tree_node *continue_stmt_node = create_node(CONTINUE_STMT, "CONTINUE_STMT");
     token_list_item *before = curr_token;
 
     if(parse_token(LANGLE) &&
@@ -827,7 +868,7 @@ bool continue_stmt(tree_node *parent) {
 }
 
 bool parse_expr(tree_node *parent) {
-    tree_node *expr_node = create_node(EXPR_NODE, NULL);
+    tree_node *expr_node = create_node(EXPR_NODE, "EXPR");
     token_list_item *before = curr_token;
 
     expr_stack *operators = create_expr_stack(),
@@ -889,6 +930,7 @@ bool p(expr_stack *operators, expr_stack *operands) {
         }
         expr_stack_push(operands, literal_node);
     } else {
+        syn_error_count++;
         printf("Syntax error: expected value, unary operator, or parenthesis.");
     }
 }
@@ -1061,7 +1103,7 @@ bool parse_type(int8_t *placeholder, char *placeholder_lex) {
 }
 
 bool identifier_list(tree_node *parent) {
-    tree_node *identifier_list_node = create_node(IDENTIFIER_LIST_NODE, NULL);
+    tree_node *identifier_list_node = create_node(IDENTIFIER_LIST_NODE, "IDENTIFIER_LIST");
     token_list_item *before = curr_token;
 
     char placeholder_identifier[80];
@@ -1074,6 +1116,7 @@ bool identifier_list(tree_node *parent) {
         if(parse_token(COMMA)) {
             bool another_success = identifier_list(identifier_list_node);
             if(!another_success) {
+                syn_error_count++;
                 printf("Syntax error: expected another identifier"
                        "after comma 'id , <another_id>'\n");
                 destroy_node(identifier_list_node);
@@ -1112,7 +1155,7 @@ bool optional_expr_list(tree_node *parent) {
 }
 
 bool expr_list(tree_node *parent) {
-    tree_node *expr_list_node = create_node(EXPR_LIST_NODE, NULL);
+    tree_node *expr_list_node = create_node(EXPR_LIST_NODE, "EXPR_LIST");
     token_list_item *before = curr_token;
 
     bool success = parse_expr(expr_list_node);
@@ -1125,6 +1168,7 @@ bool expr_list(tree_node *parent) {
             if(!another_success) {
                 printf("Syntax error: expected another expression"
                        "after comma 'expr , <another_expr>'\n");
+                syn_error_count++;
                 destroy_node(expr_list_node);
                 return false;
             }
@@ -1182,9 +1226,12 @@ bool parse_constant(char *placeholder_lex) {
 
 bool expect_token(int8_t expected_token, char *expected_token_str) {
     bool success = parse_token(expected_token);
-    if(!success) printf("Error: expected %s but got %s\n",
-                        expected_token_str,
-                        curr_token -> next -> token -> lexeme);
+    if(!success) { 
+        printf("Error: expected %s but got %s\n",
+               expected_token_str,
+               curr_token -> next -> token -> lexeme);
+        syn_error_count++;
+    }
     return success;
 }
 
@@ -1202,4 +1249,74 @@ void get_prev_token() {
         curr_lexeme = curr_token -> token -> lexeme;
         curr_token_rep = curr_token -> token -> token_rep;
     }
+}
+
+void flatten_syntax_tree(tree_node *current) {
+    if(current == NULL) return;
+
+    node_type type = current -> type;
+    if(type == IDENTIFIER_NODE) {
+        fprintf(syn_tree_file, "IDENTIFIER\t%s\n", current -> value); return; }
+    else if(type == INT_LITERAL_NODE) {
+        fprintf(syn_tree_file, "INT_LITERAL\t%s\n", current -> value); return; }
+    else if(type == FLOAT_LITERAL_NODE) {
+        fprintf(syn_tree_file, "FLOAT_LITERAL\t%s\n", current -> value); return; }
+    else if(type == STR_LITERAL_NODE) {
+        fprintf(syn_tree_file, "STR_LITERAL\t%s\n", current -> value); return; }
+    else if(type == TRUE_KW_NODE) {
+        fprintf(syn_tree_file, "TRUE_KW\t%s\n", current -> value); return; }
+    else if(type == FALSE_KW_NODE) {
+        fprintf(syn_tree_file, "FALSE_KW\t%s\n", current -> value); return; }
+    
+    else if(type == TYPE_NODE) {
+        fprintf(syn_tree_file, "TYPE\t%s\n", current -> value); return; }
+    else if(type == EXPR_NODE) {
+        print_expr(current); fprintf(syn_tree_file, "\n"); return; }
+
+    // Print the current node
+    fprintf(syn_tree_file, "%s\n", current -> value);
+    // Recurse for each child
+    if(current -> children_head != NULL) {
+        tree_node *current_child = current -> children_head;
+        while(current_child != NULL) {
+            flatten_syntax_tree(current_child);
+            current_child = current_child -> next_sibling;
+        }
+    }
+}
+
+void print_expr(tree_node *expr_node) {
+    // Print the "expr" string
+    fprintf(syn_tree_file, "%s\t", expr_node -> value);
+    // For each child, output the string value
+    print_expr_child(expr_node -> children_head);
+}
+
+void print_expr_child(tree_node *current) {
+    if(current == NULL) return;
+
+    // If single value, print immediately then return
+    node_type type = current -> type;
+    if(type == IDENTIFIER_NODE ||
+       type == INT_LITERAL_NODE ||
+       type == FLOAT_LITERAL_NODE ||
+       type == STR_LITERAL_NODE ||
+       type == TRUE_KW_NODE ||
+       type == FALSE_KW_NODE) {
+        fprintf(syn_tree_file, "%s", current -> value);
+        return;
+    }
+
+    // Print the value, a left paren (, and all children inside recursively, and right paren )
+    fprintf(syn_tree_file, "%s(", current -> value);
+    // Recurse for each child
+    if(current -> children_head != NULL) {
+        tree_node *current_child = current -> children_head;
+        print_expr_child(current_child);
+        while((current_child = current_child -> next_sibling) != NULL) {
+            fprintf(syn_tree_file, ",");
+            print_expr_child(current_child);
+        }
+    }
+    fprintf(syn_tree_file, ")");
 }

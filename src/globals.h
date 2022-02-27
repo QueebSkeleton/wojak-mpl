@@ -24,6 +24,16 @@ char **separated_name_extension;
 char filename_symboltable[255];
 
 /**
+ * @brief File name, with .wojaktree
+ */
+char filename_syntaxtree[255];
+
+/**
  * @brief Number of errors encountered in lexer phase.
   */
 uint8_t lex_error_count;
+
+/**
+ * @brief Number of errors encountered in syntax phase.
+  */
+uint8_t syn_error_count;
