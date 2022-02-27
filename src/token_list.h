@@ -34,7 +34,6 @@ typedef struct token_list_item token_list_item;
 struct token_list {
     struct token_list_item *head;
     struct token_list_item *tail;
-    struct token_list_item *current;
     int current_size;
 };
 typedef struct token_list token_list;
@@ -54,9 +53,9 @@ struct token_list* construct_token_list() {
     token_list_created -> tail =
         (struct token_list_item *) malloc(sizeof(struct token_list_item));
     token_list_created -> head -> next = token_list_created -> tail;
+    token_list_created -> head -> token = NULL;
     token_list_created -> tail -> prev = token_list_created -> head;
-
-    token_list_created -> current = NULL;
+    token_list_created -> tail -> token = NULL;
     token_list_created -> current_size = 0;
     return token_list_created;
 }
@@ -93,38 +92,6 @@ void add_token_to_list(struct token_list *token_list_,
 
     // Increment the size of list
     token_list_ -> current_size++;
-    // Set current initially (if this is the first item added)
-    if(token_list_ -> current_size == 1) token_list_ -> current = new_item;
-}
-
-/**
- * @brief Traverses the current pointer in the list to the next.
- * 
- * @param token_list_ the list to change current value.
- * @return true if the traversal was successful
- * @return false if not
- */
-bool next_item_in_token_list(struct token_list *token_list_) {
-    // If token list is null,
-    // or no items yet are added,
-    // or the current item is the last item, simply do nothing
-    if(token_list_ == NULL ||
-       token_list_ -> current == NULL ||
-       token_list_ -> current -> next == token_list_ -> tail) return false;
-
-    token_list_ -> current = token_list_ -> current -> next;
-    return true;
-}
-
-/**
- * @brief Get the current from token list
- * 
- * @param token_list_ 
- * @return struct token_list_item* 
- */
-struct token_list_item* get_current_from_token_list(const struct token_list *token_list_) {
-    if(token_list_ == NULL) return NULL;
-    return token_list_ -> current;
 }
 
 /**

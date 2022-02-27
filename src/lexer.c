@@ -106,6 +106,7 @@
     } while(0)
 
 void lex_init();
+void start_lex();
 void lex();
 void get_next_char();
 void get_next_char_nonblank();
@@ -113,13 +114,21 @@ void retract_char(uint16_t);
 void refresh_buffer(uint8_t);
 void error(char *error_message);
 
-bool is_valid_file_name(const char*);
-char** separate_name_extension(const char*);
-int compare(char[], char[]);
-
-extern FILE *input_file;
-extern FILE *sym_file;
+extern char filename[255];
+extern char **separated_name_extension;
 extern uint8_t lex_error_count;
+
+/**
+ * @brief The input file, assumingly in .wojak language rules.
+ * 
+ */
+FILE *input_file;
+
+/**
+ * @brief The symbol table file output
+ * 
+ */
+FILE *sym_file;
 
 /**
  * @brief Placeholder for the current lexeme.
@@ -180,47 +189,24 @@ uint16_t begin_lexeme_ptr;
 uint16_t forward_lexeme_ptr;
 
 /**
- * @brief Entry point of the compiler. For now, it prints all tokens in the input file.
- * 
- * @param argc 
- * @param argv 
- * @return int 
+ * @brief Initiate the lexical analysis phase. Outputs a .symwojak symbol table file.
  */
-int main(int argc, char *argv[]) {
-    // Check if arguments are properly given
-    if(argc < 2) {
-        printf("Error: no given files.\n");
-        printf("Usage is: wojak filename.wojak\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // Check if filename is proper
-    if(!is_valid_file_name(argv[1])) {
-        printf("Error: invalid file with name %s. It must have a"
-            " format of name.wojak\n", argv[1]);
-        exit(EXIT_FAILURE);
-    }
-
-    // Extract file name and extension
-    char **separated_name_extension = separate_name_extension(argv[1]);
-    if(compare(separated_name_extension[1], "wojak")) {
-        printf("Error: file extension must be .wojak\n");
-        exit(EXIT_FAILURE);
-    }
-
+void start_lex() {
     // Open input file in read mode
-    if((input_file = fopen(argv[1], "r")) == NULL) {
+    if((input_file = fopen(filename, "r")) == NULL) {
         printf("Error: cannot open file with name %s. Please check if this file exists"
-            " or if the program cannot access it.\n", argv[1]);
+            " or if the program cannot access it.\n", filename);
         exit(EXIT_FAILURE);
     }
+
+    // Construct the symbol table file name
+    strcpy(filename_symboltable, separated_name_extension[0]);
+    strcat(filename_symboltable, ".symwojak");
 
     // Open symbol table output file
-    if((sym_file = fopen(strcat(separated_name_extension[0],
-                                ".symwojak"),
-                         "w")) == NULL) {
-        printf("Error: cannot create symbol table output file %s. Please check"
-            " if the program cannot access it.\n", argv[1]);
+    if((sym_file = fopen(filename_symboltable, "w")) == NULL) {
+        printf("Error: cannot create symbol table output file. Please check"
+            " if the program cannot access it.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -234,14 +220,13 @@ int main(int argc, char *argv[]) {
             fprintf(sym_file, "%s,%d,%s\n", lex_text, lex_token, lex_token_desc);
         lex();
     }
+    fprintf(sym_file, "%s,%d,%s\n", "EMPTY", EOF, "End of input");
 
-    // Clean up memory
+    // Clean up memory used by lexer
 
-
-    // Close the files
+    // Close the files used by lexer
     fclose(sym_file);
     fclose(input_file);
-
 }
 
 /**
@@ -320,12 +305,13 @@ void lex() {
                 else TRANSITION('t', 95);
                 else TRANSITION('f', 190);
                 else TRANSITION('b', 195);
+                else TRANSITION('o', 207);
                 // Start of identifier
                 else TRANSITION_NONSINGLE(isalpha(next_char) || next_char == '_', 1);
                 // Start of integer or float literal
                 else TRANSITION_NONSINGLE(isdigit(next_char), 177);
                 // End of File
-                else TRANSITION(EOF, 207);
+                else TRANSITION(EOF, 210);
                 // Invalid token
                 else printf("Unrecognized token %c\n.", next_char);
                 break;
@@ -373,14 +359,14 @@ void lex() {
             case 21: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION('=', 22);
                         else TRANSITION('>', 23),
-                        RETRACT_THEN_ACCEPT("Right Angle Bracket", RBRACKET));
+                        RETRACT_THEN_ACCEPT("Right Angle Bracket", RANGLE));
             case 22: ACCEPT("Greater Than or Equal Operator", GT_EQ_OP);
             case 23: ACCEPT("Bitwise Shift Right Operator", BITWISE_RIGHT_OP);
             case 24: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION('=', 25);
                         else TRANSITION('<', 26);
                         else TRANSITION('!', 163),
-                        RETRACT_THEN_ACCEPT("Left Angle Bracket", LBRACKET));
+                        RETRACT_THEN_ACCEPT("Left Angle Bracket", LANGLE));
             case 25: ACCEPT("Less Than or Equal Operator", LT_EQ_OP);
             case 26: ACCEPT("Bitwise Shift Left Operator", BITWISE_LEFT_OP);
             case 27: WORD_STATE(TRANSITION('r', 28));
@@ -550,9 +536,11 @@ void lex() {
                         "then Noise Word", THEN_NW);
             case 145: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
                         "to Noise Word", TO_NW);
-            case 146: WORD_STATE(
+            case 146: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION('i', 147);
-                        else TRANSITION('t', 184));
+                        else TRANSITION('t', 184);
+                        else TRANSITION_NONSINGLE(isalnum(next_char) || next_char == '_', 1),
+                        RETRACT_THEN_ACCEPT("in Keyword", IN_KW));
             case 147: WORD_STATE(TRANSITION('t', 148));
             case 148: WORD_STATE(TRANSITION('i', 149));
             case 149: WORD_STATE(TRANSITION('a', 150));
@@ -658,7 +646,11 @@ void lex() {
             case 206: FINAL_STATE_WITH_TRANSITION(
                         TRANSITION_NONSINGLE(isdigit(next_char) || next_char == '.', 206),
                         ERROR("Too many decimal points.\n"));
-            case 207: ACCEPT("End of File", EOF);
+            case 207: WORD_STATE(TRANSITION('u', 208));
+            case 208: WORD_STATE(TRANSITION('t', 209));
+            case 209: ACCEPT_WORD_OR_TRANSITION_IDENTIFIER(
+                        "out Keyword", OUT_KW);
+            case 210: ACCEPT("End of File", EOF);
         }
     }
 }
@@ -762,69 +754,6 @@ void refresh_buffer(uint8_t half) {
     // NOTE: this is intentionally done because fread() does not place
     // EOF on the string, but instead uses \0
     buffer[BUFFER_LENGTH * (half) + chars_read] = EOF;
-}
-
-/**
- * @brief Checks if the given string is a valid file name "name.extension"
- * 
- * @param filename the string to evaluate
- * @return the validity of the string as a filename
- */
-bool is_valid_file_name(const char *filename) {
-    int filename_len = strlen(filename);
-
-    if(filename_len < 3) return false;
-
-    for(int i = 0; i < filename_len; i++)
-        if(filename[i] == '.' && (i != 0 && i != filename_len - 1))
-            return true;
-
-    return false;
-}
-
-/**
- * @brief Separate the file name and extension from a given string.
- * 
- * @param filename the filename to break down.
- * @return const char** the name (index 0) and extension (index 1)
- */
-char** separate_name_extension(const char *filename) {
-    char *dot_loc = strrchr(filename, '.'),
-         **filename_broken = (char **) malloc(sizeof(char *) * 2);
-    uint8_t name_len = dot_loc - filename + 1,
-            ext_len = filename + (strlen(filename)) - dot_loc;
-    filename_broken[0] = strcpy((char *) malloc(sizeof(char) * name_len),
-                                filename);
-    filename_broken[0][name_len - 1] = '\0';
-    filename_broken[1] = strcpy((char *) malloc(sizeof(char) * ext_len),
-                                dot_loc + 1);
-    filename_broken[1][ext_len - 1] = '\0';
-    return filename_broken;
-}
-
-/**
- * @brief Compares two character strings.
- *
- * @param a the first string
- * @param b the second string 
- * @return the ascii difference
- */
-int compare(char a[], char b[]) {
-    int a_len = strlen(a),
-        b_len = strlen(b),
-        i;
-
-    for(i = 0; i < a_len && i < b_len; i++)
-        if(a[i] != b[i])
-            return a[i] - b[i];
-    
-    // overlaps (when one of the strings is bigger)
-    if(i < a_len)
-        return a[i];
-    else if(i < b_len)
-        return -b[i];
-
-    return 0;
 }
 
 /**

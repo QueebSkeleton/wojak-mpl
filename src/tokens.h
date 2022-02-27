@@ -77,6 +77,9 @@ enum tokens {
     EVAL_KW,
     CONST_KW,
 
+    IN_KW,
+    OUT_KW,
+
     INT_KW,
     FLOAT_KW,
     STRING_KW,

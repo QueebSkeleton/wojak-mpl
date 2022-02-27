@@ -9,22 +9,19 @@
 #endif
 
 /**
- * @brief File name
- * 
+ * @brief File name, raw.
  */
 char filename[255];
 
 /**
- * @brief The input file, assumingly in .wojak language rules.
- * 
+ * @brief File name, separated name and extension.
  */
-FILE *input_file;
+char **separated_name_extension;
 
 /**
- * @brief The symbol table file output
- * 
+ * @brief File name, with .symwojak\
  */
-FILE *sym_file;
+char filename_symboltable[255];
 
 /**
  * @brief Number of errors encountered in lexer phase.
