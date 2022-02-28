@@ -31,6 +31,7 @@ void syn_init();
 void parse_tokens_into_list();
 token_list_item* get_next_token();
 token_list_item* get_prev_token();
+void skip_to_langle_delim();
 void write_syntax_file();
 
 void flatten_syntax_tree(tree_node*);
@@ -168,11 +169,17 @@ void write_syntax_file() {
 
 bool prog() {
     root = create_node(PROG, "PROG");
-    bool success = stmts(root);
+    bool success = false;
+
+    while(!success && curr_token_rep != EOF) {
+        success = stmts(root);
+        get_next_token();
+        skip_to_langle_delim();
+    }
 
     if(!success) {
         syn_error_count++;
-        printf("Syntax error: program must contain at least one statement.\n");
+        printf("Program is not valid.\n");
     }
 
     return success;
@@ -256,14 +263,11 @@ bool prim_decl_stmt(tree_node* parent) {
         if(success) {
             add_node_to_parent(prim_decl_node, TYPE_NODE, type_declared_str);
             add_ready_to_parent(parent, prim_decl_node);
-            
-            // printf("Primitive Declaration: [Type: %s, Identifier: %s]\n",
-            //        type_declared_str,
-            //        identifier_str);
             return true;
         } else {
+            skip_to_langle_delim();
             printf("incorrect primitive declaration statement.\n"
-                   "Must be <prim_declare type={type} identifier={identifier}/>\n");
+                   "Must be <prim_declare type={type} identifier={identifier}/>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -302,7 +306,7 @@ bool list_decl_stmt(tree_node *parent) {
             success = list_elems(list_decl_node);
             if(!success) {
                 syn_error_count++;
-                printf("Syntax error: expected at least (1) list element\n");
+                printf("Syntax error: expected at least (1) list element\n\n");
                 destroy_node(list_decl_node);
                 return false;
             }
@@ -319,8 +323,9 @@ bool list_decl_stmt(tree_node *parent) {
             add_ready_to_parent(parent, list_decl_node);
             return true;
         } else {
+            skip_to_langle_delim();
             printf("incorrect list declaration statement.\n"
-                   "Must be <list type={type} identifier={identifier}> elems </list_declare>\n");
+                   "Must be <list type={type} identifier={identifier}> elems </list_declare>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -369,7 +374,7 @@ bool list_elem(tree_node *parent) {
             return true;
         } else {
             printf("incorrect elem statement.\n"
-                   "Must be <elem expr={expr}/>\n");
+                   "Must be <elem expr={expr}/>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -410,7 +415,7 @@ bool assign_stmt(tree_node *parent) {
             return true;
         } else {
             printf("incorrect assign statement.\n"
-                   "Must be <assign identifier={identifier} expr={expr}/>\n");
+                   "Must be <assign identifier={identifier} expr={expr}/>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -448,7 +453,7 @@ bool in_stmt(tree_node *parent) {
             return true;
         } else {
             printf("incorrect input statement.\n"
-                   "Must be <in identifier={identifier}/>\n");
+                   "Must be <in identifier={identifier}/>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -484,7 +489,7 @@ bool out_stmt(tree_node *parent) {
             return true;
         } else {
             printf("incorrect output statement.\n"
-                   "Must be <out expr={expr}/>\n");
+                   "Must be <out expr={expr}/>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -542,7 +547,7 @@ bool if_stmt(tree_node *parent) {
             return true;
         } else {
             printf("incorrect if statement.\n"
-                   "Must be <if expr={expr}>stmts</if>\n");
+                   "Must be <if expr={expr}>stmts</if>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -597,7 +602,7 @@ bool elif_stmt(tree_node *parent) {
             return true;
         } else {
             printf("incorrect elif statement.\n"
-                   "Must be <elif expr={expr}>stmts</elif>\n");
+                   "Must be <elif expr={expr}>stmts</elif>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -629,7 +634,7 @@ bool else_stmt(tree_node *parent) {
             return true;
         } else {
             printf("incorrect else statement.\n"
-                   "Must be <else>stmts</else>\n");
+                   "Must be <else>stmts</else>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -671,7 +676,7 @@ bool switch_stmt(tree_node *parent) {
             return true;
         } else {
             printf("incorrect switch statement.\n"
-                   "Must be <switch eval={eval}>cases</switch>\n");
+                   "Must be <switch eval={eval}>cases</switch>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -748,7 +753,7 @@ bool regular_case(tree_node *parent) {
             return true;
         } else {
             printf("incorrect case statement.\n"
-                   "Must be <case const={constant}>stmts</case>\n");
+                   "Must be <case const={constant}>stmts</case>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -781,7 +786,7 @@ bool default_case(tree_node *parent) {
             return true;
         } else {
             printf("incorrect default statement.\n"
-                   "Must be <default>stmts</case>\n");
+                   "Must be <default>stmts</case>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -818,7 +823,7 @@ bool while_stmt(tree_node *parent) {
             return true;
         } else {
             printf("incorrect while statement.\n"
-                   "Must be <while expr={expr}>stmts</while>\n");
+                   "Must be <while expr={expr}>stmts</while>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -842,11 +847,10 @@ bool break_stmt(tree_node *parent) {
 
         if(success) {
             add_ready_to_parent(parent, break_stmt_node);
-            printf("Break Statement\n");
             return true;
         } else {
             printf("incorrect break statement.\n"
-                   "Must be <break/>\n");
+                   "Must be <break/>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -870,11 +874,10 @@ bool continue_stmt(tree_node *parent) {
 
         if(success) {
             add_ready_to_parent(parent, continue_stmt_node);
-            printf("Continue Statement\n");
             return true;
         } else {
             printf("incorrect continue statement.\n"
-                   "Must be <continue/>\n");
+                   "Must be <continue/>\n\n");
         }
     } else {
         curr_token = before -> prev;
@@ -1301,6 +1304,13 @@ token_list_item* get_prev_token() {
         curr_token_rep = curr_token -> token -> token_rep;
     }
     return curr_token;
+}
+
+void skip_to_langle_delim() {
+    get_next_token();
+    while(curr_token_rep != LANGLE && curr_token_rep != EOF)
+        get_next_token();
+    get_prev_token();
 }
 
 void flatten_syntax_tree(tree_node *current) {
