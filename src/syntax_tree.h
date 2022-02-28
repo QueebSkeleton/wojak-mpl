@@ -59,6 +59,7 @@ typedef enum node_type {
     DIV_NODE,
     FLOOR_NODE,
     MOD_NODE,
+    EXP_NODE,
 
     UNARY_ADD_NODE,
     UNARY_SUB_NODE,

@@ -29,8 +29,8 @@
 // Prototypes
 void syn_init();
 void parse_tokens_into_list();
-void get_next_token();
-void get_prev_token();
+token_list_item* get_next_token();
+token_list_item* get_prev_token();
 void write_syntax_file();
 
 void flatten_syntax_tree(tree_node*);
@@ -72,6 +72,7 @@ int8_t precedence_level(node_type);
 bool is_recognizable_as_binary(int8_t);
 bool is_recognizable_as_unary(int8_t);
 tree_node *trasnform_into_binary_node(int8_t);
+tree_node *transform_into_unary_node(int8_t);
 bool is_unary(node_type);
 bool is_left_associative(node_type);
 
@@ -89,7 +90,7 @@ bool parse_type(int8_t*, char*);
 /**
  * @brief Number of errors encountered in syntax phase.
   */
-uint8_t syn_error_count;
+extern uint8_t syn_error_count;
 
 // Globals for Syntax Analysis
 // The input symbol table file
@@ -115,6 +116,9 @@ void start_syn() {
 
     // Parse all tokens
     parse_tokens_into_list();
+    // Close symbol table file
+    fclose(sym_file);
+
     // Start at sentinel intentionally placed
     curr_token = all_tokens -> head -> next;
     syn_error_count = 0;
@@ -126,9 +130,6 @@ void start_syn() {
     if(!syn_error_count) {
         write_syntax_file();
     }
-
-    // Close files used by syntax analysis phase
-    fclose(sym_file);
 }
 
 void parse_tokens_into_list() {
@@ -167,7 +168,14 @@ void write_syntax_file() {
 
 bool prog() {
     root = create_node(PROG, "PROG");
-    return stmts(root);
+    bool success = stmts(root);
+
+    if(!success) {
+        syn_error_count++;
+        printf("Syntax error: program must contain at least one statement.\n");
+    }
+
+    return success;
 }
 
 bool stmts(tree_node* parent) {
@@ -288,9 +296,19 @@ bool list_decl_stmt(tree_node *parent) {
             expect_token(LCBRACE, "{") &&
             parse_identifier(identifier_str) &&
             expect_token(RCBRACE, "}") &&
-            expect_token(RANGLE, ">") &&
-            list_elems(list_decl_node) &&
-            expect_token(LANGLE, "<") &&
+            expect_token(RANGLE, ">");
+
+        if(success) {
+            success = list_elems(list_decl_node);
+            if(!success) {
+                syn_error_count++;
+                printf("Syntax error: expected at least (1) list element\n");
+                destroy_node(list_decl_node);
+                return false;
+            }
+        }
+
+        success = expect_token(LANGLE, "<") &&
             expect_token(FW_SLASH, "/") &&
             expect_token(LIST_DECLARE_KW, "list_declare keyword") &&
             expect_token(RANGLE, ">");
@@ -930,9 +948,21 @@ bool p(expr_stack *operators, expr_stack *operands) {
         }
         expr_stack_push(operands, literal_node);
     } else {
-        syn_error_count++;
-        printf("Syntax error: expected value, unary operator, or parenthesis.");
-    }
+        get_next_token();
+        if(curr_token_rep == LPAREN) {
+            expr_stack_push(operators, create_node(SENTINEL_EXPR_NODE, NULL));
+            bool success = e(operators, operands) &&
+                           expect_token(RPAREN, ")");
+            expr_stack_pop(operators);
+        } else if(is_recognizable_as_unary(curr_token_rep)) {
+            tree_node *unary_node = transform_into_unary_node(curr_token_rep);
+            push_operator(unary_node, operators, operands);
+            p(operators, operands);
+        } else {
+            syn_error_count++;
+            printf("Syntax error: expected value, unary operator, or parenthesis.");
+        }
+    } 
 }
 
 void pop_operator(expr_stack *operators, expr_stack *operands) {
@@ -961,13 +991,12 @@ void push_operator(tree_node *operator, expr_stack *operators, expr_stack *opera
 
 bool compare_operators(node_type first, node_type second) {
     // if both binary, check left associativity also
-    if(!is_unary(first) && !is_unary(second))
-        return precedence_level(first) > precedence_level(second) ||
+    if(first == SENTINEL_EXPR_NODE) return false;
+    else if(!is_unary(first) && !is_unary(second))
+        return precedence_level(first) < precedence_level(second) ||
                (precedence_level(first) == precedence_level(second) &&
                 is_left_associative(first));
-    
-    else
-        return precedence_level(first) > precedence_level(second);
+    else return precedence_level(first) < precedence_level(second);
 }
 
 int8_t precedence_level(node_type operator) {
@@ -980,7 +1009,7 @@ int8_t precedence_level(node_type operator) {
             return 11;
         case BITWISE_OR_NODE:
             return 10;
-        case BITWISE_NOT_NODE:
+        case BITWISE_XOR_NODE:
             return 9;
         case BITWISE_AND_NODE:
             return 8;
@@ -1005,6 +1034,9 @@ int8_t precedence_level(node_type operator) {
             return 3;
         case UNARY_ADD_NODE:
         case UNARY_SUB_NODE:
+        case LOGIC_NOT_NODE:
+        case BITWISE_NOT_NODE:
+        case EXP_NODE:
             return 2;
         default:
             return -1;
@@ -1030,15 +1062,20 @@ bool is_recognizable_as_binary(int8_t token_rep) {
            token_rep == MUL_OP ||
            token_rep == FW_SLASH ||
            token_rep == FLR_OP ||
-           token_rep == MOD_OP;
+           token_rep == MOD_OP ||
+           token_rep == EXP_OP;
 }
 
 bool is_recognizable_as_unary(int8_t token_rep) {
     return token_rep == ADD_OP ||
-           token_rep == HYPHEN;
+           token_rep == HYPHEN ||
+           token_rep == LOGIC_NOT_OP ||
+           token_rep == BITWISE_NOT_OP;
+        //   token_rep == INC_OP ||
+        //   token_rep == DEC_OP;
 }
 
-tree_node *trasnform_into_binary_node(int8_t token_rep) {
+tree_node* trasnform_into_binary_node(int8_t token_rep) {
     switch(token_rep) {
         case LOGIC_OR_OP: return create_node(LOGIC_OR_NODE, "||");
         case LOGIC_AND_OP: return create_node(LOGIC_AND_NODE, "&&");
@@ -1059,13 +1096,26 @@ tree_node *trasnform_into_binary_node(int8_t token_rep) {
         case FW_SLASH: return create_node(DIV_NODE, "/");
         case FLR_OP: return create_node(FLOOR_NODE, "//");
         case MOD_OP: return create_node(MOD_NODE, "%");
+        case EXP_OP: return create_node(EXP_NODE, "**");
+        default: return NULL;
+    }
+}
+
+tree_node* transform_into_unary_node(int8_t token_rep) {
+    switch(token_rep) {
+        case ADD_OP: return create_node(UNARY_ADD_NODE, "+");
+        case HYPHEN: return create_node(UNARY_SUB_NODE, "-");
+        case LOGIC_NOT_OP: return create_node(LOGIC_NOT_NODE, "!");
+        case BITWISE_NOT_OP: return create_node(BITWISE_NOT_NODE, "~");
         default: return NULL;
     }
 }
 
 bool is_unary(node_type type) {
     return type == UNARY_ADD_NODE ||
-           type == UNARY_SUB_NODE;
+           type == UNARY_SUB_NODE ||
+           type == LOGIC_NOT_NODE ||
+           type == BITWISE_NOT_NODE;
 }
 
 bool is_left_associative(node_type type) {
@@ -1235,20 +1285,22 @@ bool expect_token(int8_t expected_token, char *expected_token_str) {
     return success;
 }
 
-void get_next_token() {
+token_list_item* get_next_token() {
     curr_token = curr_token -> next;
     if(curr_token -> token != NULL) {
         curr_lexeme = curr_token -> token -> lexeme;
         curr_token_rep = curr_token -> token -> token_rep;
     }
+    return curr_token;
 }
 
-void get_prev_token() {
+token_list_item* get_prev_token() {
     curr_token = curr_token -> prev;
     if(curr_token -> token != NULL) {
         curr_lexeme = curr_token -> token -> lexeme;
         curr_token_rep = curr_token -> token -> token_rep;
     }
+    return curr_token;
 }
 
 void flatten_syntax_tree(tree_node *current) {
