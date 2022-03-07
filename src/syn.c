@@ -1,5 +1,3 @@
-// TODO: Increment error count when no list elements are specified for a list declaration
-// TODO: Implement rest of operators, including unary
 
 #ifndef GLOBALS_H
 #define GLOBALS_H
@@ -34,9 +32,11 @@ token_list_item* get_prev_token();
 void skip_to_langle_delim();
 void write_syntax_file();
 
-void flatten_syntax_tree(tree_node*);
+void flatten_syntax_tree(tree_node*, int8_t);
 void print_expr(tree_node*);
 void print_expr_child(tree_node*);
+
+// LL(1) or LR(1) parser recommendation
 
 // Process Productions
 bool prog();
@@ -136,15 +136,48 @@ void start_syn() {
 void parse_tokens_into_list() {
     // Initialize list of tokens
     all_tokens = construct_token_list();
-    // Extract all tokens, put into token list
-    size_t len = 0;
-    char *line = NULL;
-    ssize_t read;
     add_token_to_list(all_tokens, "SENTINEL", -2);
-    while((read = getline(&line, &len, sym_file)) != -1) {
-        char *lexeme = strtok(line, ";");
-        int8_t token_rep = atoi(strtok(NULL, ";"));
+
+    char ch = 0;
+    while(!feof(sym_file)) {
+        char lexeme[80] = { '\0' };
+        char token_rep_str[6] = { '\0' };
+        char ch = 0;
+
+        int index = 0;
+
+        // Read the lexeme
+        ch = fgetc(sym_file);
+        if(ch == EOF) break;
+        while(ch != ';') {
+            lexeme[index++] = ch;
+            ch = fgetc(sym_file);
+        }
+
+        // Read the token rep
+        ch = fgetc(sym_file);
+        index = 0;
+        while(ch != ';') {
+            token_rep_str[index++] = ch;
+            ch = fgetc(sym_file);
+        }
+        // Convert to integer
+        int multiplier, token_rep;
+        for(index--, multiplier = 1, token_rep = 0; index >= 0; index--) {
+            if(token_rep_str[index] == '-') {
+                token_rep = -token_rep;
+                break;
+            }
+
+            token_rep += (token_rep_str[index] - 48) * multiplier;
+            multiplier *= 10;
+        }
+
+        // Add token
         add_token_to_list(all_tokens, lexeme, token_rep);
+
+        // Discard rest
+        while((ch = fgetc(sym_file)) != '\n');
     }
 }
 
@@ -161,7 +194,7 @@ void write_syntax_file() {
     }
 
     // Write to the syntax tree file
-    flatten_syntax_tree(root);
+    flatten_syntax_tree(root, 0);
 
     // Close file
     fclose(syn_tree_file);
@@ -207,6 +240,25 @@ bool stmt(tree_node* parent) {
     // if eof, stop
     get_next_token();
     if(curr_token_rep == EOF) return false;
+    else if(curr_token_rep == LANGLE) {
+        get_next_token();
+        if(curr_token_rep == FW_SLASH) return false;
+        else if(curr_token_rep != PRIM_DECLARE_KW &&
+                curr_token_rep != LIST_DECLARE_KW &&
+                curr_token_rep != ASSIGN_KW &&
+                curr_token_rep != IN_KW &&
+                curr_token_rep != OUT_KW &&
+                curr_token_rep != IF_KW &&
+                curr_token_rep != SWITCH_KW &&
+                curr_token_rep != WHILE_KW &&
+                curr_token_rep != BREAK_KW &&
+                curr_token_rep != CONTINUE_KW) {
+            printf("Syntax error: expected prim_declare | list_declare | assign |"
+                   "in | out | if | switch | while | break | continue keyword.\n");
+            return false;
+        }
+        get_prev_token();
+    }
     get_prev_token();
 
     tree_node *stmt_node = create_node(STMT, "STMT");
@@ -447,9 +499,6 @@ bool in_stmt(tree_node *parent) {
         if(success) {
             add_node_to_parent(in_node, IDENTIFIER_NODE, identifier_str);
             add_ready_to_parent(parent, in_node);
-            
-            // printf("Input Statement: [Identifier: %s]\n",
-            //        identifier_str);
             return true;
         } else {
             printf("incorrect input statement.\n"
@@ -484,8 +533,6 @@ bool out_stmt(tree_node *parent) {
 
         if(success) {
             add_ready_to_parent(parent, out_node);
-            
-            // printf("Output Statement\n");
             return true;
         } else {
             printf("incorrect output statement.\n"
@@ -543,7 +590,6 @@ bool if_stmt(tree_node *parent) {
 
         if(success) {
             add_ready_to_parent(parent, if_node);
-            // printf("Output Statement\n");
             return true;
         } else {
             printf("incorrect if statement.\n"
@@ -598,7 +644,6 @@ bool elif_stmt(tree_node *parent) {
 
         if(success) {
             add_ready_to_parent(parent, elif_node);
-            // printf("Output Statement\n");
             return true;
         } else {
             printf("incorrect elif statement.\n"
@@ -630,7 +675,6 @@ bool else_stmt(tree_node *parent) {
 
         if(success) {
             add_ready_to_parent(parent, else_node);
-            // printf("Output Statement\n");
             return true;
         } else {
             printf("incorrect else statement.\n"
@@ -670,9 +714,6 @@ bool switch_stmt(tree_node *parent) {
         if(success) {
             add_node_to_parent(switch_node, EVAL, identifier_str);
             add_ready_to_parent(parent, switch_node);
-            
-            // printf("Input Statement: [Identifier: %s]\n",
-            //        identifier_str);
             return true;
         } else {
             printf("incorrect switch statement.\n"
@@ -747,9 +788,6 @@ bool regular_case(tree_node *parent) {
         if(success) {
             add_node_to_parent(regular_case_node, CONST, constant);
             add_ready_to_parent(parent, regular_case_node);
-            
-            // printf("Input Statement: [Identifier: %s]\n",
-            //        identifier_str);
             return true;
         } else {
             printf("incorrect case statement.\n"
@@ -781,8 +819,6 @@ bool default_case(tree_node *parent) {
 
         if(success) {
             add_ready_to_parent(parent, default_case_node);
-            
-            // printf("Default Case:");
             return true;
         } else {
             printf("incorrect default statement.\n"
@@ -819,7 +855,6 @@ bool while_stmt(tree_node *parent) {
 
         if(success) {
             add_ready_to_parent(parent, while_stmt_node);
-            // printf("Default Case:");
             return true;
         } else {
             printf("incorrect while statement.\n"
@@ -1249,7 +1284,11 @@ bool parse_identifier(char *placeholder_lex) {
 
 bool parse_token(int8_t token) {
     token_list_item *before = curr_token;
-    if(curr_token_rep == EOF) { return false; }
+    if(curr_token_rep == EOF) {
+        curr_token = before -> prev;
+        get_next_token();
+        return false;
+    }
     get_next_token();
     bool success = token == curr_token_rep;
     if(!success) {
@@ -1313,8 +1352,11 @@ void skip_to_langle_delim() {
     get_prev_token();
 }
 
-void flatten_syntax_tree(tree_node *current) {
+void flatten_syntax_tree(tree_node *current, int8_t no_of_indents) {
     if(current == NULL) return;
+
+    for(int8_t i = 0; i < no_of_indents; i++)
+        fprintf(syn_tree_file, "\t");
 
     node_type type = current -> type;
     if(type == IDENTIFIER_NODE) {
@@ -1341,7 +1383,7 @@ void flatten_syntax_tree(tree_node *current) {
     if(current -> children_head != NULL) {
         tree_node *current_child = current -> children_head;
         while(current_child != NULL) {
-            flatten_syntax_tree(current_child);
+            flatten_syntax_tree(current_child, no_of_indents + 1);
             current_child = current_child -> next_sibling;
         }
     }
