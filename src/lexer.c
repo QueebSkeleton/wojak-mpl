@@ -188,6 +188,10 @@ uint16_t begin_lexeme_ptr;
  */
 uint16_t forward_lexeme_ptr;
 
+uint16_t line_number;
+uint16_t column_number;
+uint16_t column_of_lexeme;
+
 /**
  * @brief Initiate the lexical analysis phase. Outputs a .symwojak symbol table file.
  */
@@ -217,10 +221,10 @@ void start_lex() {
     lex();
     while(lex_token != EOF) {
         if(lex_token != INVALID)
-            fprintf(sym_file, "%s;%d;%s\n", lex_text, lex_token, lex_token_desc);
+            fprintf(sym_file, "%d;%d;%s;%d;%s\n", line_number, column_of_lexeme, lex_text, lex_token, lex_token_desc);
         lex();
     }
-    fprintf(sym_file, "%s;%d;%s\n", "EMPTY", EOF, "End of input");
+    fprintf(sym_file, "%d;%d;%s;%d;%s\n", 0, 0, "EMPTY", EOF, "End of input");
 
     // Clean up memory used by lexer
 
@@ -247,6 +251,10 @@ void lex_init() {
 
     // Error count set to 0
     lex_error_count = 0;
+
+    line_number = 1;
+    column_number = 0;
+    column_of_lexeme = 1;
 }
 
 /**
@@ -267,8 +275,8 @@ void lex() {
             case 0:
                 get_next_char_nonblank();
                 begin_lexeme_ptr = forward_lexeme_ptr;
-                // ??? Implement a generic transition table, so code repetition happens minimally
-                // Operators
+                column_of_lexeme = column_number;
+
                 TRANSITION('+', 2);
                 else TRANSITION('-', 4);
                 else TRANSITION('*', 6);
@@ -680,6 +688,13 @@ void lex() {
  */
 void get_next_char() {
     next_char = buffer[++forward_lexeme_ptr];
+    column_number++;
+
+    if(next_char == '\n') {
+        line_number++;
+        column_number = 0;
+    }
+
     // If EOF is encountered
     if(next_char == EOF) {
         // First check if EOF detected is the one
@@ -725,6 +740,13 @@ void get_next_char_nonblank() {
 void retract_char(uint16_t steps) {
     if(steps < 0)
         return;
+
+    // HARDCODED for \n single retracts! FIX
+    if(steps == 1 && buffer[forward_lexeme_ptr] == '\n') {
+        line_number--;
+    }
+
+    column_number -= steps;
 
     // If retracting from first to second buffer
     // e.g. retracting from index 0???

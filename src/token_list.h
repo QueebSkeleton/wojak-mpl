@@ -20,6 +20,8 @@
 #endif
 
 struct token {
+    uint16_t line_number;
+    uint16_t column_number;
     char lexeme[80];
     int8_t token_rep;
 };
@@ -68,6 +70,8 @@ struct token_list* construct_token_list() {
  * @param token 
  */
 void add_token_to_list(struct token_list *token_list_,
+                       uint16_t line_number,
+                       uint16_t column_number,
                        const char *lexeme,
                        int8_t token_rep) {
     
@@ -82,6 +86,8 @@ void add_token_to_list(struct token_list *token_list_,
     new_item -> token = (struct token*) malloc(sizeof(struct token));
     strcpy(new_item -> token -> lexeme, lexeme);
     new_item -> token -> token_rep = token_rep;
+    new_item -> token -> line_number = line_number;
+    new_item -> token -> column_number = column_number;
 
     // Attach the token to the list
     struct token_list_item *before_new_item = token_list_ -> tail -> prev;

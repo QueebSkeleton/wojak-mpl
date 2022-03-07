@@ -136,19 +136,57 @@ void start_syn() {
 void parse_tokens_into_list() {
     // Initialize list of tokens
     all_tokens = construct_token_list();
-    add_token_to_list(all_tokens, "SENTINEL", -2);
+    add_token_to_list(all_tokens, 0, 0, "SENTINEL", -2);
 
     char ch = 0;
     while(!feof(sym_file)) {
+        char line_number_str[6] = { '\0' };
+        char column_number_str[6] = { '\0' };
         char lexeme[80] = { '\0' };
         char token_rep_str[6] = { '\0' };
         char ch = 0;
 
         int index = 0;
 
-        // Read the lexeme
+        // Read the line number
         ch = fgetc(sym_file);
         if(ch == EOF) break;
+        index = 0;
+        while(ch != ';') {
+            line_number_str[index++] = ch;
+            ch = fgetc(sym_file);
+        }
+        // Convert to integer
+        int multiplier, line_number;
+        for(index--, multiplier = 1, line_number = 0; index >= 0; index--, multiplier *= 10) {
+            if(line_number_str[index] == '-') {
+                line_number = -line_number;
+                break;
+            }
+            line_number += (line_number_str[index] - 48) * multiplier;
+        }
+
+        // Read the column number
+        ch = fgetc(sym_file);
+        if(ch == EOF) break;
+        index = 0;
+        while(ch != ';') {
+            column_number_str[index++] = ch;
+            ch = fgetc(sym_file);
+        }
+        // Convert to integer
+        int column_number;
+        for(index--, multiplier = 1, column_number = 0; index >= 0; index--, multiplier *= 10) {
+            if(column_number_str[index] == '-') {
+                column_number = -column_number;
+                break;
+            }
+            column_number += (column_number_str[index] - 48) * multiplier;
+        }
+
+        // Read the lexeme
+        ch = fgetc(sym_file);
+        index = 0;
         while(ch != ';') {
             lexeme[index++] = ch;
             ch = fgetc(sym_file);
@@ -162,7 +200,7 @@ void parse_tokens_into_list() {
             ch = fgetc(sym_file);
         }
         // Convert to integer
-        int multiplier, token_rep;
+        int token_rep;
         for(index--, multiplier = 1, token_rep = 0; index >= 0; index--) {
             if(token_rep_str[index] == '-') {
                 token_rep = -token_rep;
@@ -174,7 +212,7 @@ void parse_tokens_into_list() {
         }
 
         // Add token
-        add_token_to_list(all_tokens, lexeme, token_rep);
+        add_token_to_list(all_tokens, line_number, column_number, lexeme, token_rep);
 
         // Discard rest
         while((ch = fgetc(sym_file)) != '\n');
@@ -253,8 +291,10 @@ bool stmt(tree_node* parent) {
                 curr_token_rep != WHILE_KW &&
                 curr_token_rep != BREAK_KW &&
                 curr_token_rep != CONTINUE_KW) {
-            printf("Syntax error: expected prim_declare | list_declare | assign |"
-                   "in | out | if | switch | while | break | continue keyword.\n");
+            printf("Line %d:%d: Syntax error: expected prim_declare | list_declare | assign |"
+                   "in | out | if | switch | while | break | continue keyword.\n",
+                   curr_token -> token -> line_number,
+                   curr_token -> token -> column_number);
             return false;
         }
         get_prev_token();
@@ -1319,7 +1359,9 @@ bool parse_constant(char *placeholder_lex) {
 bool expect_token(int8_t expected_token, char *expected_token_str) {
     bool success = parse_token(expected_token);
     if(!success) { 
-        printf("Error: expected %s but got %s\n",
+        printf("Line %d:%d: Error: expected %s but encountered %s\n",
+               curr_token -> token -> line_number,
+               curr_token -> token -> column_number,
                expected_token_str,
                curr_token -> next -> token -> lexeme);
         syn_error_count++;
